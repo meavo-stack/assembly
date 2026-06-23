@@ -8,6 +8,8 @@ export type AssemblyFilters = {
   rangeFrom: string | null;
   rangeTo: string | null;
   market: string | null;
+  partnerId: string | null;
+  search: string | null;
 };
 
 type DateParts = { year: number; month: number; day: number };
@@ -48,6 +50,8 @@ export function parseAssemblyFilters(searchParams: {
   from?: string;
   to?: string;
   market?: string;
+  partner?: string;
+  q?: string;
 }): AssemblyFilters {
   const datePreset =
     searchParams.date === "yesterday" ||
@@ -58,12 +62,16 @@ export function parseAssemblyFilters(searchParams: {
       : "today";
 
   const market = searchParams.market?.trim() || null;
+  const partnerId = searchParams.partner?.trim() || null;
+  const search = searchParams.q?.trim() || null;
 
   return {
     datePreset,
     rangeFrom: searchParams.from?.trim() || null,
     rangeTo: searchParams.to?.trim() || null,
     market,
+    partnerId,
+    search,
   };
 }
 
@@ -106,6 +114,13 @@ export function buildAssemblyWhere(filters: AssemblyFilters) {
   const where: {
     assemblyDate?: { gte: Date; lte: Date };
     market?: string;
+    installPartnerId?: string;
+    AND?: Array<{
+      OR: Array<
+        | { dealId: { contains: string; mode: "insensitive" } }
+        | { clientName: { contains: string; mode: "insensitive" } }
+      >;
+    }>;
   } = {};
 
   const dateRange = assemblyDateRange(filters);
@@ -115,6 +130,21 @@ export function buildAssemblyWhere(filters: AssemblyFilters) {
 
   if (filters.market) {
     where.market = filters.market;
+  }
+
+  if (filters.partnerId) {
+    where.installPartnerId = filters.partnerId;
+  }
+
+  if (filters.search) {
+    where.AND = [
+      {
+        OR: [
+          { dealId: { contains: filters.search, mode: "insensitive" } },
+          { clientName: { contains: filters.search, mode: "insensitive" } },
+        ],
+      },
+    ];
   }
 
   return where;

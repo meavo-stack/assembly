@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import type { AssemblyDatePreset, AssemblyFilters } from "@/lib/assembly-filters";
 import { Button } from "@/components/ui";
 
@@ -14,9 +14,11 @@ const DATE_PRESETS: { id: AssemblyDatePreset; label: string }[] = [
 export function AssemblyFilters({
   filters,
   markets,
+  partners,
 }: {
   filters: AssemblyFilters;
   markets: string[];
+  partners: { id: string; name: string }[];
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -26,6 +28,11 @@ export function AssemblyFilters({
   );
   const [rangeFrom, setRangeFrom] = useState(filters.rangeFrom ?? "");
   const [rangeTo, setRangeTo] = useState(filters.rangeTo ?? "");
+  const [search, setSearch] = useState(filters.search ?? "");
+
+  useEffect(() => {
+    setSearch(filters.search ?? "");
+  }, [filters.search]);
 
   function pushParams(updates: Record<string, string | null>) {
     const params = new URLSearchParams(searchParams.toString());
@@ -63,6 +70,19 @@ export function AssemblyFilters({
 
   function selectMarket(market: string) {
     pushParams({ market: market || null });
+  }
+
+  function selectPartner(partnerId: string) {
+    pushParams({ partner: partnerId || null });
+  }
+
+  function applySearch() {
+    pushParams({ q: search.trim() || null });
+  }
+
+  function clearSearch() {
+    setSearch("");
+    pushParams({ q: null });
   }
 
   return (
@@ -136,7 +156,48 @@ export function AssemblyFilters({
             ))}
           </select>
         </label>
+
+        <label className="flex flex-wrap items-center gap-2 text-sm">
+          <span className="font-medium text-slate-700">Partner</span>
+          <select
+            value={filters.partnerId ?? ""}
+            onChange={(e) => selectPartner(e.target.value)}
+            className="min-w-[10rem] rounded-lg border border-slate-300 bg-white px-3 py-2 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
+          >
+            <option value="">All partners</option>
+            {partners.map((partner) => (
+              <option key={partner.id} value={partner.id}>
+                {partner.name}
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
+
+      <form
+        className="flex flex-wrap items-end gap-3 border-t border-slate-100 pt-4"
+        onSubmit={(e) => {
+          e.preventDefault();
+          applySearch();
+        }}
+      >
+        <label className="min-w-[12rem] flex-1 space-y-1 text-sm">
+          <span className="font-medium text-slate-700">Search</span>
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Deal ID or client name"
+            className="block w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
+          />
+        </label>
+        <Button type="submit">Search</Button>
+        {filters.search ? (
+          <Button type="button" variant="secondary" onClick={clearSearch}>
+            Clear
+          </Button>
+        ) : null}
+      </form>
     </div>
   );
 }

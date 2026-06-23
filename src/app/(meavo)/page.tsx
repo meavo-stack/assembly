@@ -22,7 +22,14 @@ function formatDate(date: Date | null): string {
 export default async function AssembliesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ date?: string; from?: string; to?: string; market?: string }>;
+  searchParams: Promise<{
+    date?: string;
+    from?: string;
+    to?: string;
+    market?: string;
+    partner?: string;
+    q?: string;
+  }>;
 }) {
   await requireMeavoAccess();
 
@@ -30,7 +37,7 @@ export default async function AssembliesPage({
   const filters = parseAssemblyFilters(params);
   const where = buildAssemblyWhere(filters);
 
-  const [assemblies, importState, marketRows] = await Promise.all([
+  const [assemblies, importState, marketRows, partners] = await Promise.all([
     prisma.assembly.findMany({
       where,
       orderBy: [{ assemblyDate: "asc" }, { dealId: "asc" }],
@@ -47,11 +54,18 @@ export default async function AssembliesPage({
       select: { market: true },
       orderBy: { market: "asc" },
     }),
+    prisma.assemblyPartner.findMany({
+      where: { isInternal: false },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true },
+    }),
   ]);
 
   const markets = marketRows.map((row) => row.market);
   const dateLabel = formatFilterDateLabel(filters);
   const marketLabel = filters.market ?? "All markets";
+  const partnerLabel =
+    partners.find((partner) => partner.id === filters.partnerId)?.name ?? "All partners";
 
   return (
     <>
@@ -70,7 +84,7 @@ export default async function AssembliesPage({
       </PageHeader>
 
       <Suspense fallback={null}>
-        <AssemblyFilters filters={filters} markets={markets} />
+        <AssemblyFilters filters={filters} markets={markets} partners={partners} />
       </Suspense>
 
       <p className="mb-4 text-sm text-slate-500">
@@ -80,6 +94,18 @@ export default async function AssembliesPage({
           <>
             {" "}
             in <span className="font-medium text-slate-700">{marketLabel}</span>
+          </>
+        ) : null}
+        {filters.partnerId ? (
+          <>
+            {" "}
+            for <span className="font-medium text-slate-700">{partnerLabel}</span>
+          </>
+        ) : null}
+        {filters.search ? (
+          <>
+            {" "}
+            matching <span className="font-medium text-slate-700">&quot;{filters.search}&quot;</span>
           </>
         ) : null}
         {importState?.lastRunAt ? (
@@ -126,8 +152,8 @@ export default async function AssembliesPage({
         {assemblies.length === 0 && (
           <Card>
             <p className="text-sm text-slate-600">
-              No assemblies match these filters. Try another date or market, or refresh from the
-              sheet.
+              No assemblies match these filters. Try another date, market, partner, or search term, or
+              refresh from the sheet.
             </p>
           </Card>
         )}
