@@ -110,12 +110,12 @@ export function QuestionnaireWizard({
             action={async (formData) => {
               setError(null);
               startTransition(async () => {
-                try {
-                  await uploadSubmissionPhotos(slug, dealId, formData);
-                  await submitQuestionnaire(slug, dealId);
-                } catch (err) {
-                  setError(err instanceof Error ? err.message : "Upload failed");
+                const upload = await uploadSubmissionPhotos(slug, dealId, formData);
+                if (upload.error) {
+                  setError(upload.error);
+                  return;
                 }
+                await submitQuestionnaire(slug, dealId);
               });
             }}
           >

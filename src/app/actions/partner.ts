@@ -70,14 +70,14 @@ export async function uploadSubmissionPhotos(
   slug: string,
   dealId: string,
   formData: FormData,
-): Promise<void> {
+): Promise<{ error?: string }> {
   const partner = await prisma.assemblyPartner.findFirst({ where: { slug, isActive: true } });
-  if (!partner) throw new Error("Partner not found");
+  if (!partner) return { error: "Partner not found." };
 
   const assembly = await prisma.assembly.findFirst({
     where: { dealId, installPartnerId: partner.id },
   });
-  if (!assembly) throw new Error("Assembly not found");
+  if (!assembly) return { error: "Assembly not found." };
 
   const submission = await prisma.questionnaireSubmission.upsert({
     where: { assemblyId_partnerId: { assemblyId: assembly.id, partnerId: partner.id } },
@@ -90,25 +90,33 @@ export async function uploadSubmissionPhotos(
   });
 
   const files = formData.getAll("photos").filter((f): f is File => f instanceof File && f.size > 0);
+  if (files.length === 0) return { error: "Please select at least one photo." };
+
   const existingCount = await prisma.submissionPhoto.count({ where: { submissionId: submission.id } });
 
-  for (let i = 0; i < files.length; i += 1) {
-    const file = files[i];
-    const blob = await put(`assembly/${assembly.dealId}/${Date.now()}-${file.name}`, file, {
-      access: "public",
-      token: process.env.BLOB_READ_WRITE_TOKEN,
-    });
-    await prisma.submissionPhoto.create({
-      data: {
-        submissionId: submission.id,
-        storageKey: blob.url,
-        fileName: file.name,
-        sortOrder: existingCount + i,
-      },
-    });
+  try {
+    for (let i = 0; i < files.length; i += 1) {
+      const file = files[i];
+      const blob = await put(`assembly/${assembly.dealId}/${file.name}`, file, {
+        access: "public",
+        addRandomSuffix: true,
+      });
+      await prisma.submissionPhoto.create({
+        data: {
+          submissionId: submission.id,
+          storageKey: blob.url,
+          fileName: file.name,
+          sortOrder: existingCount + i,
+        },
+      });
+    }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Photo upload failed.";
+    return { error: message };
   }
 
   revalidatePath(`/${slug}/${dealId}`);
+  return {};
 }
 
 export async function submitQuestionnaire(slug: string, dealId: string): Promise<void> {
