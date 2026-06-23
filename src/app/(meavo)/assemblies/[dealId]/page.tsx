@@ -82,6 +82,14 @@ export default async function AssemblyDetailPage({
                   <p className="mt-1 whitespace-pre-wrap text-slate-600">
                     {answer.textAnswer.trim() || "—"}
                   </p>
+                ) : answer.question.type === QuestionType.YES_NO ? (
+                  <p className="mt-1 text-slate-600">
+                    {answer.yesNoAnswer === true
+                      ? "Yes"
+                      : answer.yesNoAnswer === false
+                        ? "No"
+                        : "—"}
+                  </p>
                 ) : (
                   <p className="mt-1 text-slate-600">{answer.checked ? "Confirmed" : "Not confirmed"}</p>
                 )}

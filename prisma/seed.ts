@@ -2,23 +2,39 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
+const DEFAULT_CHECKS = [
+  "Booth is level and securely positioned",
+  "All panels are fitted and doors close properly",
+  "Power and lighting tested and working",
+  "Ventilation/fans tested (if applicable)",
+  "Area cleaned and packaging removed",
+];
+
 async function main() {
   let questionnaire = await prisma.questionnaire.findFirst();
   if (!questionnaire) {
     questionnaire = await prisma.questionnaire.create({
+      data: { isPublished: true },
+    });
+
+    const section = await prisma.questionnaireSection.create({
       data: {
-        isPublished: true,
-        questions: {
-          create: [
-            { text: "Booth is level and securely positioned", sortOrder: 0, required: true },
-            { text: "All panels are fitted and doors close properly", sortOrder: 1, required: true },
-            { text: "Power and lighting tested and working", sortOrder: 2, required: true },
-            { text: "Ventilation/fans tested (if applicable)", sortOrder: 3, required: true },
-            { text: "Area cleaned and packaging removed", sortOrder: 4, required: true },
-          ],
-        },
+        questionnaireId: questionnaire.id,
+        title: "Install checks",
+        sortOrder: 0,
       },
     });
+
+    await prisma.question.createMany({
+      data: DEFAULT_CHECKS.map((text, sortOrder) => ({
+        questionnaireId: questionnaire!.id,
+        sectionId: section.id,
+        text,
+        sortOrder,
+        required: true,
+      })),
+    });
+
     console.log("Seeded default questionnaire:", questionnaire.id);
   }
 }

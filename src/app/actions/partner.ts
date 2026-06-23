@@ -35,7 +35,7 @@ export async function saveQuestionAnswer(
   slug: string,
   dealId: string,
   questionId: string,
-  answer: { checked?: boolean; textAnswer?: string },
+  answer: { checked?: boolean; textAnswer?: string; yesNoAnswer?: boolean },
 ): Promise<void> {
   const partner = await prisma.assemblyPartner.findFirst({ where: { slug, isActive: true } });
   if (!partner) throw new Error("Partner not found");
@@ -58,9 +58,11 @@ export async function saveQuestionAnswer(
   });
 
   const data =
-    answer.textAnswer !== undefined
-      ? { textAnswer: answer.textAnswer.trim(), checked: false }
-      : { checked: answer.checked ?? false };
+    answer.yesNoAnswer !== undefined
+      ? { yesNoAnswer: answer.yesNoAnswer, checked: false, textAnswer: "" }
+      : answer.textAnswer !== undefined
+        ? { textAnswer: answer.textAnswer.trim(), checked: false, yesNoAnswer: null }
+        : { checked: answer.checked ?? false, yesNoAnswer: null };
 
   await prisma.questionAnswer.upsert({
     where: {

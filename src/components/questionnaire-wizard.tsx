@@ -1,49 +1,42 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { QuestionType } from "@prisma/client";
+import { useEffect, useMemo, useState, useTransition } from "react";
+import {
+  type AnswerRecord,
+  type SectionRecord,
+  buildWizardSteps,
+  isStepComplete,
+} from "@/lib/questionnaire";
 import { saveQuestionAnswer, submitQuestionnaire, uploadSubmissionPhotos } from "@/app/actions/partner";
 import { Button, Card } from "@/components/ui";
-
-type Question = {
-  id: string;
-  text: string;
-  type: QuestionType;
-  sortOrder: number;
-};
-
-type AnswerState = Record<string, { checked: boolean; text: string }>;
-
-function isAnswered(question: Question, answers: AnswerState): boolean {
-  const answer = answers[question.id];
-  if (!answer) return false;
-  if (question.type === QuestionType.TEXT) return answer.text.trim().length > 0;
-  return answer.checked;
-}
 
 export function QuestionnaireWizard({
   slug,
   dealId,
-  questions,
+  sections,
   initialAnswers,
   hasPhotos,
   isSubmitted,
 }: {
   slug: string;
   dealId: string;
-  questions: Question[];
-  initialAnswers: AnswerState;
+  sections: SectionRecord[];
+  initialAnswers: Record<string, AnswerRecord>;
   hasPhotos: boolean;
   isSubmitted: boolean;
 }) {
   const [step, setStep] = useState(0);
-  const [answers, setAnswers] = useState<AnswerState>(initialAnswers);
+  const [answers, setAnswers] = useState(initialAnswers);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
-  const onPhotosStep = step >= questions.length;
-  const currentQuestion = questions[step];
-  const totalSteps = questions.length + 1;
+  const steps = useMemo(() => buildWizardSteps(sections, answers), [sections, answers]);
+  const currentStep = steps[step];
+  const totalSteps = steps.length;
+
+  useEffect(() => {
+    setStep((s) => Math.min(s, Math.max(steps.length - 1, 0)));
+  }, [steps.length]);
 
   if (isSubmitted) {
     return (
@@ -54,7 +47,7 @@ export function QuestionnaireWizard({
     );
   }
 
-  if (!questions.length) {
+  if (!sections.length) {
     return (
       <Card>
         <p className="text-sm text-slate-600">No questionnaire has been published yet.</p>
@@ -62,81 +55,187 @@ export function QuestionnaireWizard({
     );
   }
 
+  if (!currentStep) {
+    return (
+      <Card>
+        <p className="text-sm text-slate-600">No steps available for this questionnaire.</p>
+      </Card>
+    );
+  }
+
+  function goNext() {
+    setStep((s) => Math.min(s + 1, steps.length - 1));
+  }
+
+  function goBack() {
+    setStep((s) => Math.max(0, s - 1));
+  }
+
   return (
     <div className="mx-auto w-full max-w-lg">
       <p className="mb-4 text-center text-sm text-slate-500">
-        Step {Math.min(step + 1, totalSteps)} of {totalSteps}
+        Step {step + 1} of {totalSteps}
       </p>
 
-      {!onPhotosStep && currentQuestion && (
+      {currentStep.kind === "section" && (
         <Card>
-          <p className="text-lg font-medium text-slate-900">{currentQuestion.text}</p>
-
-          {currentQuestion.type === QuestionType.TEXT ? (
-            <textarea
-              className="mt-6 w-full rounded-lg border border-slate-300 px-3 py-2 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
-              rows={4}
-              placeholder="Type your answer…"
-              value={answers[currentQuestion.id]?.text ?? ""}
-              onChange={(e) => {
-                const text = e.target.value;
-                setAnswers((prev) => ({
-                  ...prev,
-                  [currentQuestion.id]: { checked: false, text },
-                }));
-              }}
-              onBlur={(e) => {
-                const text = e.target.value;
-                startTransition(async () => {
-                  await saveQuestionAnswer(slug, dealId, currentQuestion.id, { textAnswer: text });
-                });
-              }}
-            />
-          ) : (
-            <label className="mt-6 flex cursor-pointer items-center gap-3 rounded-lg border border-slate-200 p-4">
-              <input
-                type="checkbox"
-                className="h-6 w-6 rounded border-slate-300"
-                checked={answers[currentQuestion.id]?.checked ?? false}
-                onChange={(e) => {
-                  const checked = e.target.checked;
-                  setAnswers((prev) => ({
-                    ...prev,
-                    [currentQuestion.id]: { checked, text: prev[currentQuestion.id]?.text ?? "" },
-                  }));
-                  startTransition(async () => {
-                    await saveQuestionAnswer(slug, dealId, currentQuestion.id, { checked });
-                  });
-                }}
-              />
-              <span className="text-base text-slate-700">Confirmed</span>
-            </label>
-          )}
-
+          <p className="text-lg font-medium text-slate-900">{currentStep.title}</p>
+          <div className="mt-4 space-y-3">
+            {currentStep.questions.map((question) => (
+              <label
+                key={question.id}
+                className="flex cursor-pointer items-start gap-3 rounded-lg border border-slate-200 p-4"
+              >
+                <input
+                  type="checkbox"
+                  className="mt-0.5 h-6 w-6 shrink-0 rounded border-slate-300"
+                  checked={answers[question.id]?.checked ?? false}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setAnswers((prev) => ({
+                      ...prev,
+                      [question.id]: {
+                        checked,
+                        text: prev[question.id]?.text ?? "",
+                        yesNo: prev[question.id]?.yesNo ?? null,
+                      },
+                    }));
+                    startTransition(async () => {
+                      await saveQuestionAnswer(slug, dealId, question.id, { checked });
+                    });
+                  }}
+                />
+                <span className="text-base text-slate-700">{question.text}</span>
+              </label>
+            ))}
+          </div>
           <div className="mt-6 flex gap-3">
-            <Button
-              type="button"
-              variant="secondary"
-              className="flex-1"
-              disabled={step === 0}
-              onClick={() => setStep((s) => Math.max(0, s - 1))}
-            >
+            <Button type="button" variant="secondary" className="flex-1" disabled={step === 0} onClick={goBack}>
               Back
             </Button>
             <Button
               type="button"
               className="flex-1"
-              disabled={!isAnswered(currentQuestion, answers) || pending}
+              disabled={!isStepComplete(currentStep, answers) || pending}
+              onClick={goNext}
+            >
+              Next
+            </Button>
+          </div>
+        </Card>
+      )}
+
+      {currentStep.kind === "yes_no" && (
+        <Card>
+          <p className="text-lg font-medium text-slate-900">{currentStep.question.text}</p>
+          <div className="mt-6 grid grid-cols-2 gap-3">
+            {[
+              { label: "Yes", value: true },
+              { label: "No", value: false },
+            ].map((option) => {
+              const selected = answers[currentStep.question.id]?.yesNo === option.value;
+              return (
+                <button
+                  key={option.label}
+                  type="button"
+                  className={`rounded-lg border px-4 py-3 text-base font-medium transition ${
+                    selected
+                      ? "border-brand-600 bg-brand-50 text-brand-800"
+                      : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                  }`}
+                  onClick={() => {
+                    setAnswers((prev) => ({
+                      ...prev,
+                      [currentStep.question.id]: {
+                        checked: false,
+                        text: "",
+                        yesNo: option.value,
+                      },
+                    }));
+                    startTransition(async () => {
+                      await saveQuestionAnswer(slug, dealId, currentStep.question.id, {
+                        yesNoAnswer: option.value,
+                      });
+                    });
+                  }}
+                >
+                  {option.label}
+                </button>
+              );
+            })}
+          </div>
+          <div className="mt-6 flex gap-3">
+            <Button type="button" variant="secondary" className="flex-1" disabled={step === 0} onClick={goBack}>
+              Back
+            </Button>
+            <Button
+              type="button"
+              className="flex-1"
+              disabled={!isStepComplete(currentStep, answers) || pending}
               onClick={() => {
-                if (currentQuestion.type === QuestionType.TEXT) {
-                  const text = answers[currentQuestion.id]?.text ?? "";
+                const answer = answers[currentStep.question.id];
+                if (
+                  answer?.yesNo === false &&
+                  currentStep.question.endsQuestionnaireOnNo
+                ) {
                   startTransition(async () => {
-                    await saveQuestionAnswer(slug, dealId, currentQuestion.id, { textAnswer: text });
-                    setStep((s) => s + 1);
+                    await submitQuestionnaire(slug, dealId);
                   });
-                } else {
-                  setStep((s) => s + 1);
+                  return;
                 }
+                goNext();
+              }}
+            >
+              {answers[currentStep.question.id]?.yesNo === false &&
+              currentStep.question.endsQuestionnaireOnNo
+                ? "Finish"
+                : "Next"}
+            </Button>
+          </div>
+        </Card>
+      )}
+
+      {currentStep.kind === "follow_up" && (
+        <Card>
+          <p className="text-lg font-medium text-slate-900">{currentStep.question.text}</p>
+          <textarea
+            className="mt-6 w-full rounded-lg border border-slate-300 px-3 py-2 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
+            rows={4}
+            placeholder="Describe the issues…"
+            value={answers[currentStep.question.id]?.text ?? ""}
+            onChange={(e) => {
+              const text = e.target.value;
+              setAnswers((prev) => ({
+                ...prev,
+                [currentStep.question.id]: {
+                  checked: false,
+                  text,
+                  yesNo: null,
+                },
+              }));
+            }}
+            onBlur={(e) => {
+              startTransition(async () => {
+                await saveQuestionAnswer(slug, dealId, currentStep.question.id, {
+                  textAnswer: e.target.value,
+                });
+              });
+            }}
+          />
+          <div className="mt-6 flex gap-3">
+            <Button type="button" variant="secondary" className="flex-1" onClick={goBack}>
+              Back
+            </Button>
+            <Button
+              type="button"
+              className="flex-1"
+              disabled={!isStepComplete(currentStep, answers) || pending}
+              onClick={() => {
+                const text = answers[currentStep.question.id]?.text ?? "";
+                startTransition(async () => {
+                  await saveQuestionAnswer(slug, dealId, currentStep.question.id, { textAnswer: text });
+                  goNext();
+                });
               }}
             >
               Next
@@ -145,7 +244,7 @@ export function QuestionnaireWizard({
         </Card>
       )}
 
-      {onPhotosStep && (
+      {currentStep.kind === "photos" && (
         <Card>
           <p className="text-lg font-medium text-slate-900">Installation photos</p>
           <p className="mt-2 text-sm text-slate-600">
@@ -179,12 +278,7 @@ export function QuestionnaireWizard({
             )}
             {error && <p className="text-sm text-red-600">{error}</p>}
             <div className="flex gap-3">
-              <Button
-                type="button"
-                variant="secondary"
-                className="flex-1"
-                onClick={() => setStep(questions.length - 1)}
-              >
+              <Button type="button" variant="secondary" className="flex-1" onClick={goBack}>
                 Back
               </Button>
               <Button type="submit" className="flex-1" disabled={pending}>

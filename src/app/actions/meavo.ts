@@ -7,6 +7,7 @@ import { requireMeavoAccess } from "@/lib/meavo-auth";
 import { hashSecret } from "@/lib/password";
 import { importAssembliesFromSheet } from "@/lib/sheets-import";
 import { slugifyPartnerName } from "@/lib/slug";
+import { migrateOrphanQuestions } from "@/lib/questionnaire-db";
 
 export async function refreshFromSheet(): Promise<{ imported: number; partnersCreated: number }> {
   await requireMeavoAccess();
@@ -69,25 +70,93 @@ export async function createPartner(formData: FormData): Promise<void> {
   revalidatePath("/partners");
 }
 
+function parseQuestionType(value: string): QuestionType {
+  if (value === "TEXT") return QuestionType.TEXT;
+  if (value === "YES_NO") return QuestionType.YES_NO;
+  return QuestionType.CHECKBOX;
+}
+
+export async function addSection(formData: FormData): Promise<void> {
+  await requireMeavoAccess();
+  const title = String(formData.get("title") ?? "").trim();
+  if (!title) return;
+
+  const questionnaire = await getOrCreateQuestionnaire();
+  const maxOrder = await prisma.questionnaireSection.aggregate({
+    where: { questionnaireId: questionnaire.id },
+    _max: { sortOrder: true },
+  });
+
+  await prisma.questionnaireSection.create({
+    data: {
+      questionnaireId: questionnaire.id,
+      title,
+      sortOrder: (maxOrder._max.sortOrder ?? -1) + 1,
+    },
+  });
+  revalidatePath("/questionnaire");
+}
+
+export async function deleteSection(formData: FormData): Promise<void> {
+  await requireMeavoAccess();
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+  await prisma.questionnaireSection.delete({ where: { id } });
+  revalidatePath("/questionnaire");
+}
+
+export async function moveSection(formData: FormData): Promise<void> {
+  await requireMeavoAccess();
+  const id = String(formData.get("id") ?? "");
+  const direction = formData.get("direction") === "down" ? "down" : "up";
+  if (!id) return;
+
+  const section = await prisma.questionnaireSection.findUnique({ where: { id } });
+  if (!section) return;
+
+  const sections = await prisma.questionnaireSection.findMany({
+    where: { questionnaireId: section.questionnaireId },
+    orderBy: { sortOrder: "asc" },
+  });
+
+  const index = sections.findIndex((s) => s.id === id);
+  const swapIndex = direction === "up" ? index - 1 : index + 1;
+  if (index < 0 || swapIndex < 0 || swapIndex >= sections.length) return;
+
+  const other = sections[swapIndex];
+  await prisma.$transaction([
+    prisma.questionnaireSection.update({ where: { id }, data: { sortOrder: other.sortOrder } }),
+    prisma.questionnaireSection.update({ where: { id: other.id }, data: { sortOrder: section.sortOrder } }),
+  ]);
+  revalidatePath("/questionnaire");
+}
+
 export async function addQuestion(formData: FormData): Promise<void> {
   await requireMeavoAccess();
   const text = String(formData.get("text") ?? "").trim();
-  if (!text) return;
+  const sectionId = String(formData.get("sectionId") ?? "");
+  if (!text || !sectionId) return;
 
-  const typeRaw = String(formData.get("type") ?? "CHECKBOX");
-  const type = typeRaw === "TEXT" ? QuestionType.TEXT : QuestionType.CHECKBOX;
+  const type = parseQuestionType(String(formData.get("type") ?? "CHECKBOX"));
+  const parentQuestionId = String(formData.get("parentQuestionId") ?? "").trim() || null;
+  const endsQuestionnaireOnNo = formData.get("endsQuestionnaireOnNo") === "on";
 
-  const questionnaire = await getOrCreateQuestionnaire();
+  const section = await prisma.questionnaireSection.findUnique({ where: { id: sectionId } });
+  if (!section) return;
+
   const maxOrder = await prisma.question.aggregate({
-    where: { questionnaireId: questionnaire.id },
+    where: { sectionId },
     _max: { sortOrder: true },
   });
 
   await prisma.question.create({
     data: {
-      questionnaireId: questionnaire.id,
+      questionnaireId: section.questionnaireId,
+      sectionId,
+      parentQuestionId,
       text,
       type,
+      endsQuestionnaireOnNo: type === QuestionType.YES_NO ? endsQuestionnaireOnNo : false,
       sortOrder: (maxOrder._max.sortOrder ?? -1) + 1,
     },
   });
@@ -101,10 +170,10 @@ export async function moveQuestion(formData: FormData): Promise<void> {
   if (!id) return;
 
   const question = await prisma.question.findUnique({ where: { id } });
-  if (!question) return;
+  if (!question?.sectionId) return;
 
   const questions = await prisma.question.findMany({
-    where: { questionnaireId: question.questionnaireId },
+    where: { sectionId: question.sectionId },
     orderBy: { sortOrder: "asc" },
   });
 
@@ -143,6 +212,9 @@ async function getOrCreateQuestionnaire() {
   const existing = await prisma.questionnaire.findFirst({
     orderBy: { createdAt: "asc" },
   });
-  if (existing) return existing;
+  if (existing) {
+    await migrateOrphanQuestions(existing.id);
+    return existing;
+  }
   return prisma.questionnaire.create({ data: { isPublished: false } });
 }

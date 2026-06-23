@@ -277,6 +277,7 @@ enum SubmissionStatus {
 enum QuestionType {
   CHECKBOX
   TEXT
+  YES_NO
 }
 
 model AssemblyPartner {
@@ -320,23 +321,45 @@ model Questionnaire {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  sections  QuestionnaireSection[]
   questions Question[]
 }
 
-model Question {
-  id              String       @id @default(cuid())
+model QuestionnaireSection {
+  id              String   @id @default(cuid())
   questionnaireId String
-  text            String
-  type            QuestionType @default(CHECKBOX)
+  title           String
   sortOrder       Int
-  required        Boolean      @default(true)
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
-  questionnaire Questionnaire    @relation(fields: [questionnaireId], references: [id], onDelete: Cascade)
-  answers       QuestionAnswer[]
+  questionnaire Questionnaire @relation(fields: [questionnaireId], references: [id], onDelete: Cascade)
+  questions     Question[]
 
   @@index([questionnaireId, sortOrder])
+}
+
+model Question {
+  id                      String       @id @default(cuid())
+  questionnaireId         String
+  sectionId               String?
+  parentQuestionId        String?
+  text                    String
+  type                    QuestionType @default(CHECKBOX)
+  sortOrder               Int
+  required                Boolean      @default(true)
+  endsQuestionnaireOnNo   Boolean      @default(false)
+  createdAt               DateTime     @default(now())
+  updatedAt               DateTime     @updatedAt
+
+  questionnaire     Questionnaire         @relation(fields: [questionnaireId], references: [id], onDelete: Cascade)
+  section             QuestionnaireSection? @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  parentQuestion      Question?             @relation("QuestionFollowUp", fields: [parentQuestionId], references: [id], onDelete: Cascade)
+  followUpQuestions   Question[]            @relation("QuestionFollowUp")
+  answers             QuestionAnswer[]
+
+  @@index([questionnaireId, sortOrder])
+  @@index([sectionId, sortOrder])
 }
 
 model QuestionnaireSubmission {
@@ -358,11 +381,12 @@ model QuestionnaireSubmission {
 }
 
 model QuestionAnswer {
-  id           String  @id @default(cuid())
+  id           String   @id @default(cuid())
   submissionId String
   questionId   String
-  checked      Boolean @default(false)
-  textAnswer   String  @default("")
+  checked      Boolean  @default(false)
+  textAnswer   String   @default("")
+  yesNoAnswer  Boolean?
 
   submission QuestionnaireSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
   question   Question                @relation(fields: [questionId], references: [id], onDelete: Cascade)

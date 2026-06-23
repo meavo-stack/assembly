@@ -5,6 +5,7 @@ import { requirePartnerSession } from "@/lib/partner-session";
 import { prisma } from "@/lib/prisma";
 import { MEVAO_RESERVED_SEGMENTS } from "@/lib/constants";
 import { QuestionnaireWizard } from "@/components/questionnaire-wizard";
+import type { SectionRecord } from "@/lib/questionnaire";
 
 export const dynamic = "force-dynamic";
 
@@ -28,8 +29,28 @@ export default async function PartnerAssemblyPage({
 
   const questionnaire = await prisma.questionnaire.findFirst({
     where: { isPublished: true },
-    include: { questions: { orderBy: { sortOrder: "asc" } } },
+    include: {
+      sections: {
+        orderBy: { sortOrder: "asc" },
+        include: { questions: { orderBy: { sortOrder: "asc" } } },
+      },
+    },
   });
+
+  const sections: SectionRecord[] =
+    questionnaire?.sections.map((section) => ({
+      id: section.id,
+      title: section.title,
+      sortOrder: section.sortOrder,
+      questions: section.questions.map((q) => ({
+        id: q.id,
+        text: q.text,
+        type: q.type,
+        sortOrder: q.sortOrder,
+        parentQuestionId: q.parentQuestionId,
+        endsQuestionnaireOnNo: q.endsQuestionnaireOnNo,
+      })),
+    })) ?? [];
 
   const submission = await prisma.questionnaireSubmission.findUnique({
     where: { assemblyId_partnerId: { assemblyId: assembly.id, partnerId: partner.id } },
@@ -42,7 +63,11 @@ export default async function PartnerAssemblyPage({
   const initialAnswers = Object.fromEntries(
     (submission?.answers ?? []).map((a) => [
       a.questionId,
-      { checked: a.checked, text: a.textAnswer ?? "" },
+      {
+        checked: a.checked,
+        text: a.textAnswer ?? "",
+        yesNo: a.yesNoAnswer ?? null,
+      },
     ]),
   );
 
@@ -59,7 +84,7 @@ export default async function PartnerAssemblyPage({
       <QuestionnaireWizard
         slug={slug}
         dealId={dealId}
-        questions={questionnaire?.questions ?? []}
+        sections={sections}
         initialAnswers={initialAnswers}
         hasPhotos={(submission?.photos.length ?? 0) > 0}
         isSubmitted={submission?.status === SubmissionStatus.SUBMITTED}
