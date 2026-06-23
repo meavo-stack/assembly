@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { LOGIN_ERROR_MESSAGES, isGoogleAuthEnabled } from "@/lib/google-auth";
@@ -20,8 +21,17 @@ export default async function LoginPage({
   return (
     <div className="flex min-h-screen items-center justify-center px-4">
       <Card className="w-full max-w-md text-center">
-        <h1 className="text-xl font-semibold text-slate-900">MEAVO Assembly</h1>
-        <p className="mt-2 text-sm text-slate-600">Sign in with your MEAVO Google account.</p>
+        <div className="flex flex-col items-center">
+          <Image
+            src="/meavo-logo.png"
+            alt="Meavo"
+            width={96}
+            height={48}
+            className="h-12 w-auto object-contain"
+            priority
+          />
+        </div>
+        <p className="mt-4 text-slate-600">Sign in to manage assembly questionnaires.</p>
         {authError && <p className="mt-4 text-sm text-red-600">{authError}</p>}
         {isGoogleAuthEnabled() ? (
           <div className="mt-6">

@@ -1,44 +1,25 @@
-import Link from "next/link";
-import { auth, signOut } from "@/lib/auth";
-import { Button } from "@/components/ui";
+import { auth } from "@/lib/auth";
+import { NavBar } from "@/components/nav-bar";
+
+const links = [
+  { href: "/", label: "Assemblies" },
+  { href: "/partners", label: "Partners" },
+  { href: "/questionnaire", label: "Questionnaire" },
+];
 
 export async function Nav() {
   const session = await auth();
+  if (!session?.user) return null;
+
+  const gatewayUrl = process.env.GATEWAY_URL ?? "https://meavo.app";
 
   return (
-    <header className="border-b border-slate-200 bg-white">
-      <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-3 py-3 sm:px-4">
-        <div className="flex items-center gap-4">
-          <Link href="/" className="text-sm font-semibold text-slate-900">
-            Assembly
-          </Link>
-          {session?.user && (
-            <nav className="flex gap-3 text-sm text-slate-600">
-              <Link href="/" className="hover:text-slate-900">
-                Assemblies
-              </Link>
-              <Link href="/partners" className="hover:text-slate-900">
-                Partners
-              </Link>
-              <Link href="/questionnaire" className="hover:text-slate-900">
-                Questionnaire
-              </Link>
-            </nav>
-          )}
-        </div>
-        {session?.user && (
-          <form
-            action={async () => {
-              "use server";
-              await signOut({ redirectTo: "/login" });
-            }}
-          >
-            <Button type="submit" variant="ghost">
-              Sign out
-            </Button>
-          </form>
-        )}
-      </div>
-    </header>
+    <NavBar
+      links={links}
+      gatewayUrl={gatewayUrl}
+      userName={session.user.name}
+      userEmail={session.user.email}
+      userImage={session.user.image}
+    />
   );
 }
