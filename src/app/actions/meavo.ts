@@ -1,5 +1,6 @@
 "use server";
 
+import { QuestionType } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireMeavoAccess } from "@/lib/meavo-auth";
@@ -73,6 +74,9 @@ export async function addQuestion(formData: FormData): Promise<void> {
   const text = String(formData.get("text") ?? "").trim();
   if (!text) return;
 
+  const typeRaw = String(formData.get("type") ?? "CHECKBOX");
+  const type = typeRaw === "TEXT" ? QuestionType.TEXT : QuestionType.CHECKBOX;
+
   const questionnaire = await getOrCreateQuestionnaire();
   const maxOrder = await prisma.question.aggregate({
     where: { questionnaireId: questionnaire.id },
@@ -83,9 +87,36 @@ export async function addQuestion(formData: FormData): Promise<void> {
     data: {
       questionnaireId: questionnaire.id,
       text,
+      type,
       sortOrder: (maxOrder._max.sortOrder ?? -1) + 1,
     },
   });
+  revalidatePath("/questionnaire");
+}
+
+export async function moveQuestion(formData: FormData): Promise<void> {
+  await requireMeavoAccess();
+  const id = String(formData.get("id") ?? "");
+  const direction = formData.get("direction") === "down" ? "down" : "up";
+  if (!id) return;
+
+  const question = await prisma.question.findUnique({ where: { id } });
+  if (!question) return;
+
+  const questions = await prisma.question.findMany({
+    where: { questionnaireId: question.questionnaireId },
+    orderBy: { sortOrder: "asc" },
+  });
+
+  const index = questions.findIndex((q) => q.id === id);
+  const swapIndex = direction === "up" ? index - 1 : index + 1;
+  if (index < 0 || swapIndex < 0 || swapIndex >= questions.length) return;
+
+  const other = questions[swapIndex];
+  await prisma.$transaction([
+    prisma.question.update({ where: { id }, data: { sortOrder: other.sortOrder } }),
+    prisma.question.update({ where: { id: other.id }, data: { sortOrder: question.sortOrder } }),
+  ]);
   revalidatePath("/questionnaire");
 }
 

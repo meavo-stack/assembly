@@ -40,7 +40,10 @@ export default async function PartnerAssemblyPage({
   });
 
   const initialAnswers = Object.fromEntries(
-    (submission?.answers ?? []).map((a) => [a.questionId, a.checked]),
+    (submission?.answers ?? []).map((a) => [
+      a.questionId,
+      { checked: a.checked, text: a.textAnswer ?? "" },
+    ]),
   );
 
   return (

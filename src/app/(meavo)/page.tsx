@@ -107,13 +107,17 @@ export default async function AssembliesPage({
                     <p>{assembly.market}</p>
                   </div>
                 </div>
-                <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-500">
-                  <span>Install: {assembly.installPartnerName || "—"}</span>
-                  {submitted && (
-                    <span className="rounded-full bg-green-100 px-2 py-0.5 text-green-800">
-                      Questionnaire submitted
-                    </span>
-                  )}
+                <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                  <span className="text-slate-500">Install: {assembly.installPartnerName || "—"}</span>
+                  <span
+                    className={
+                      submitted
+                        ? "rounded-full bg-green-100 px-2 py-0.5 font-medium text-green-800"
+                        : "rounded-full bg-slate-100 px-2 py-0.5 font-medium text-slate-600"
+                    }
+                  >
+                    {submitted ? "Questionnaire completed" : "Not completed"}
+                  </span>
                 </div>
               </Card>
             </Link>

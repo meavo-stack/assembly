@@ -273,6 +273,11 @@ enum SubmissionStatus {
   SUBMITTED
 }
 
+enum QuestionType {
+  CHECKBOX
+  TEXT
+}
+
 model AssemblyPartner {
   id         String   @id @default(cuid())
   name       String   @unique
@@ -318,13 +323,14 @@ model Questionnaire {
 }
 
 model Question {
-  id              String   @id @default(cuid())
+  id              String       @id @default(cuid())
   questionnaireId String
   text            String
+  type            QuestionType @default(CHECKBOX)
   sortOrder       Int
-  required        Boolean  @default(true)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  required        Boolean      @default(true)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
 
   questionnaire Questionnaire    @relation(fields: [questionnaireId], references: [id], onDelete: Cascade)
   answers       QuestionAnswer[]
@@ -355,6 +361,7 @@ model QuestionAnswer {
   submissionId String
   questionId   String
   checked      Boolean @default(false)
+  textAnswer   String  @default("")
 
   submission QuestionnaireSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
   question   Question                @relation(fields: [questionId], references: [id], onDelete: Cascade)

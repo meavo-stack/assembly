@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { QuestionType } from "@prisma/client";
 import { requireMeavoAccess } from "@/lib/meavo-auth";
 import { prisma } from "@/lib/prisma";
 import { Card, PageHeader } from "@/components/ui";
@@ -73,11 +74,17 @@ export default async function AssemblyDetailPage({
             {submission.submittedAt &&
               ` · Submitted ${submission.submittedAt.toLocaleString("en-GB")}`}
           </p>
-          <ul className="mt-4 space-y-2">
+          <ul className="mt-4 space-y-3">
             {submission.answers.map((answer) => (
-              <li key={answer.id} className="flex gap-2 text-sm">
-                <span>{answer.checked ? "✓" : "○"}</span>
-                <span>{answer.question.text}</span>
+              <li key={answer.id} className="text-sm">
+                <p className="font-medium text-slate-900">{answer.question.text}</p>
+                {answer.question.type === QuestionType.TEXT ? (
+                  <p className="mt-1 whitespace-pre-wrap text-slate-600">
+                    {answer.textAnswer.trim() || "—"}
+                  </p>
+                ) : (
+                  <p className="mt-1 text-slate-600">{answer.checked ? "Confirmed" : "Not confirmed"}</p>
+                )}
               </li>
             ))}
           </ul>
