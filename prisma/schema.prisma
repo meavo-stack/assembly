@@ -413,3 +413,47 @@ model SheetImportState {
   rowCount     Int       @default(0)
   errorMessage String?
 }
+
+enum BoothModel {
+  SOHO
+  WORKSTATION
+  CAMDEN_2
+  CAMDEN_4
+  HAVEN_ONE
+  HAVEN_FOCUS
+  HAVEN_2
+  HAVEN_4
+}
+
+enum ResourceType {
+  PDF
+  YOUTUBE
+}
+
+model Resource {
+  id             String       @id @default(cuid())
+  title          String
+  description    String       @default("")
+  type           ResourceType
+  storageKey     String?
+  fileName       String?
+  mimeType       String?
+  youtubeUrl     String?
+  youtubeVideoId String?
+  sortOrder      Int          @default(0)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  models ResourceBoothModel[]
+
+  @@index([sortOrder])
+}
+
+model ResourceBoothModel {
+  resourceId String
+  boothModel BoothModel
+
+  resource Resource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+
+  @@id([resourceId, boothModel])
+}

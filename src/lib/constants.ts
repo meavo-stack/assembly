@@ -9,6 +9,7 @@ export const MEVAO_RESERVED_SEGMENTS = new Set([
   "login",
   "partners",
   "questionnaire",
+  "resources",
   "assemblies",
   "api",
   "_next",

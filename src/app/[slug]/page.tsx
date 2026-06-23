@@ -90,6 +90,13 @@ export default async function PartnerPortalPage({
         </form>
       </div>
 
+      <Link
+        href={`/${slug}/resources`}
+        className="mb-4 flex w-full items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+      >
+        Resources
+      </Link>
+
       <div className="mb-4">
         <Link
           href={showPastDates ? `/${slug}` : `/${slug}?showPast=1`}

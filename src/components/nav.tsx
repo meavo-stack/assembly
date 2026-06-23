@@ -5,6 +5,7 @@ const links = [
   { href: "/", label: "Assemblies" },
   { href: "/partners", label: "Partners" },
   { href: "/questionnaire", label: "Questionnaire" },
+  { href: "/resources", label: "Resource library" },
 ];
 
 export async function Nav() {

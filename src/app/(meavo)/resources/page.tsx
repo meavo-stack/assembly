@@ -1,0 +1,79 @@
+import { ResourceType } from "@prisma/client";
+import { requireMeavoAccess } from "@/lib/meavo-auth";
+import { prisma } from "@/lib/prisma";
+import { boothModelLabel } from "@/lib/booth-models";
+import { deleteResource } from "@/app/actions/resources";
+import { ResourceAddForm } from "@/components/resource-add-form";
+import { Button, Card, PageHeader } from "@/components/ui";
+
+export const dynamic = "force-dynamic";
+
+export default async function ResourcesPage() {
+  await requireMeavoAccess();
+
+  const resources = await prisma.resource.findMany({
+    orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
+    include: { models: true },
+  });
+
+  return (
+    <>
+      <PageHeader
+        title="Resource library"
+        description="Assembly guides and troubleshooting resources for partner portals. Resources are published immediately when added."
+      />
+
+      <Card className="mb-6">
+        <h2 className="font-medium text-slate-900">Add resource</h2>
+        <ResourceAddForm />
+      </Card>
+
+      <div className="grid gap-4">
+        {resources.map((resource) => (
+          <Card key={resource.id}>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="font-medium text-slate-900">{resource.title}</p>
+                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
+                    {resource.type === ResourceType.PDF ? "PDF" : "YouTube"}
+                  </span>
+                </div>
+                {resource.description && (
+                  <p className="mt-1 text-sm text-slate-600">{resource.description}</p>
+                )}
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {resource.models.map((entry) => (
+                    <span
+                      key={entry.boothModel}
+                      className="rounded-full bg-brand-50 px-2 py-0.5 text-xs font-medium text-brand-800"
+                    >
+                      {boothModelLabel(entry.boothModel)}
+                    </span>
+                  ))}
+                </div>
+                {resource.type === ResourceType.PDF && resource.fileName && (
+                  <p className="mt-2 text-xs text-slate-500">{resource.fileName}</p>
+                )}
+                {resource.type === ResourceType.YOUTUBE && resource.youtubeUrl && (
+                  <p className="mt-2 truncate text-xs text-slate-500">{resource.youtubeUrl}</p>
+                )}
+              </div>
+              <form action={deleteResource}>
+                <input type="hidden" name="id" value={resource.id} />
+                <Button type="submit" variant="danger">
+                  Delete
+                </Button>
+              </form>
+            </div>
+          </Card>
+        ))}
+        {resources.length === 0 && (
+          <Card>
+            <p className="text-sm text-slate-600">No resources yet. Add a PDF guide or YouTube link above.</p>
+          </Card>
+        )}
+      </div>
+    </>
+  );
+}
