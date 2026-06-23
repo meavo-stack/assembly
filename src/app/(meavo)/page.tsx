@@ -1,7 +1,14 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { SubmissionStatus } from "@prisma/client";
 import { refreshFromSheet } from "@/app/actions/meavo";
+import { AssemblyFilters } from "@/components/assembly-filters";
 import { requireMeavoAccess } from "@/lib/meavo-auth";
+import {
+  buildAssemblyWhere,
+  formatFilterDateLabel,
+  parseAssemblyFilters,
+} from "@/lib/assembly-filters";
 import { prisma } from "@/lib/prisma";
 import { Button, Card, PageHeader } from "@/components/ui";
 
@@ -9,23 +16,42 @@ export const dynamic = "force-dynamic";
 
 function formatDate(date: Date | null): string {
   if (!date) return "—";
-  return date.toLocaleDateString("en-GB");
+  return date.toLocaleDateString("en-GB", { timeZone: "UTC" });
 }
 
-export default async function AssembliesPage() {
+export default async function AssembliesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ date?: string; from?: string; to?: string; market?: string }>;
+}) {
   await requireMeavoAccess();
 
-  const [assemblies, importState] = await Promise.all([
+  const params = await searchParams;
+  const filters = parseAssemblyFilters(params);
+  const where = buildAssemblyWhere(filters);
+
+  const [assemblies, importState, marketRows] = await Promise.all([
     prisma.assembly.findMany({
+      where,
       orderBy: [{ assemblyDate: "asc" }, { dealId: "asc" }],
       include: {
         installPartner: true,
         submissions: { select: { status: true } },
       },
-      take: 200,
+      take: 500,
     }),
     prisma.sheetImportState.findUnique({ where: { id: "default" } }),
+    prisma.assembly.findMany({
+      where: { market: { not: "" } },
+      distinct: ["market"],
+      select: { market: true },
+      orderBy: { market: "asc" },
+    }),
   ]);
+
+  const markets = marketRows.map((row) => row.market);
+  const dateLabel = formatFilterDateLabel(filters);
+  const marketLabel = filters.market ?? "All markets";
 
   return (
     <>
@@ -43,11 +69,27 @@ export default async function AssembliesPage() {
         </form>
       </PageHeader>
 
-      {importState?.lastRunAt && (
-        <p className="mb-4 text-sm text-slate-500">
-          Last import: {importState.lastRunAt.toLocaleString("en-GB")} ({importState.rowCount} rows)
-        </p>
-      )}
+      <Suspense fallback={null}>
+        <AssemblyFilters filters={filters} markets={markets} />
+      </Suspense>
+
+      <p className="mb-4 text-sm text-slate-500">
+        Showing {assemblies.length} {assemblies.length === 1 ? "assembly" : "assemblies"} for{" "}
+        <span className="font-medium text-slate-700">{dateLabel}</span>
+        {filters.market ? (
+          <>
+            {" "}
+            in <span className="font-medium text-slate-700">{marketLabel}</span>
+          </>
+        ) : null}
+        {importState?.lastRunAt ? (
+          <>
+            {" "}
+            · Last import: {importState.lastRunAt.toLocaleString("en-GB")} ({importState.rowCount}{" "}
+            rows)
+          </>
+        ) : null}
+      </p>
 
       <div className="grid gap-3">
         {assemblies.map((assembly) => {
@@ -80,7 +122,8 @@ export default async function AssembliesPage() {
         {assemblies.length === 0 && (
           <Card>
             <p className="text-sm text-slate-600">
-              No assemblies yet. Configure Google Sheets credentials and click Refresh from sheet.
+              No assemblies match these filters. Try another date or market, or refresh from the
+              sheet.
             </p>
           </Card>
         )}

@@ -1,0 +1,134 @@
+/** Business timezone for assembly dates (matches CS sheet calendar days). */
+export const ASSEMBLY_TIMEZONE = "Europe/London";
+
+export type AssemblyDatePreset = "yesterday" | "today" | "tomorrow" | "range";
+
+export type AssemblyFilters = {
+  datePreset: AssemblyDatePreset;
+  rangeFrom: string | null;
+  rangeTo: string | null;
+  market: string | null;
+};
+
+type DateParts = { year: number; month: number; day: number };
+
+function getZonedDateParts(timeZone: string, date = new Date()): DateParts {
+  const formatted = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
+  const [year, month, day] = formatted.split("-").map(Number);
+  return { year, month, day };
+}
+
+function partsToStoredDate(parts: DateParts): Date {
+  return new Date(Date.UTC(parts.year, parts.month - 1, parts.day));
+}
+
+function addDays(parts: DateParts, days: number): DateParts {
+  const date = partsToStoredDate(parts);
+  date.setUTCDate(date.getUTCDate() + days);
+  return {
+    year: date.getUTCFullYear(),
+    month: date.getUTCMonth() + 1,
+    day: date.getUTCDate(),
+  };
+}
+
+function parseIsoDate(value: string | undefined): Date | null {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  const [year, month, day] = value.split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, day));
+}
+
+export function parseAssemblyFilters(searchParams: {
+  date?: string;
+  from?: string;
+  to?: string;
+  market?: string;
+}): AssemblyFilters {
+  const datePreset =
+    searchParams.date === "yesterday" ||
+    searchParams.date === "today" ||
+    searchParams.date === "tomorrow" ||
+    searchParams.date === "range"
+      ? searchParams.date
+      : "today";
+
+  const market = searchParams.market?.trim() || null;
+
+  return {
+    datePreset,
+    rangeFrom: searchParams.from?.trim() || null,
+    rangeTo: searchParams.to?.trim() || null,
+    market,
+  };
+}
+
+export function assemblyDateRange(filters: AssemblyFilters): { gte: Date; lte: Date } | null {
+  const today = getZonedDateParts(ASSEMBLY_TIMEZONE);
+
+  if (filters.datePreset === "yesterday") {
+    const day = addDays(today, -1);
+    const date = partsToStoredDate(day);
+    return { gte: date, lte: date };
+  }
+
+  if (filters.datePreset === "today") {
+    const date = partsToStoredDate(today);
+    return { gte: date, lte: date };
+  }
+
+  if (filters.datePreset === "tomorrow") {
+    const day = addDays(today, 1);
+    const date = partsToStoredDate(day);
+    return { gte: date, lte: date };
+  }
+
+  if (filters.datePreset === "range") {
+    const from = parseIsoDate(filters.rangeFrom ?? undefined);
+    const to = parseIsoDate(filters.rangeTo ?? undefined);
+    if (!from && !to) {
+      const date = partsToStoredDate(today);
+      return { gte: date, lte: date };
+    }
+    if (from && to) return { gte: from, lte: to };
+    if (from) return { gte: from, lte: from };
+    return { gte: to!, lte: to! };
+  }
+
+  return null;
+}
+
+export function buildAssemblyWhere(filters: AssemblyFilters) {
+  const where: {
+    assemblyDate?: { gte: Date; lte: Date };
+    market?: string;
+  } = {};
+
+  const dateRange = assemblyDateRange(filters);
+  if (dateRange) {
+    where.assemblyDate = dateRange;
+  }
+
+  if (filters.market) {
+    where.market = filters.market;
+  }
+
+  return where;
+}
+
+export function formatFilterDateLabel(filters: AssemblyFilters): string {
+  if (filters.datePreset === "range") {
+    if (filters.rangeFrom && filters.rangeTo && filters.rangeFrom !== filters.rangeTo) {
+      return `${filters.rangeFrom} – ${filters.rangeTo}`;
+    }
+    if (filters.rangeFrom) return filters.rangeFrom;
+    if (filters.rangeTo) return filters.rangeTo;
+    return "Custom range";
+  }
+
+  return filters.datePreset.charAt(0).toUpperCase() + filters.datePreset.slice(1);
+}
