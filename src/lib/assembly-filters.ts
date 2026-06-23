@@ -1,7 +1,7 @@
 /** Business timezone for assembly dates (matches CS sheet calendar days). */
 export const ASSEMBLY_TIMEZONE = "Europe/London";
 
-export type AssemblyDatePreset = "yesterday" | "today" | "tomorrow" | "range";
+export type AssemblyDatePreset = "yesterday" | "today" | "tomorrow" | "range" | "all";
 
 export type AssemblyFilters = {
   datePreset: AssemblyDatePreset;
@@ -53,17 +53,22 @@ export function parseAssemblyFilters(searchParams: {
   partner?: string;
   q?: string;
 }): AssemblyFilters {
-  const datePreset =
-    searchParams.date === "yesterday" ||
-    searchParams.date === "today" ||
-    searchParams.date === "tomorrow" ||
-    searchParams.date === "range"
-      ? searchParams.date
-      : "today";
-
   const market = searchParams.market?.trim() || null;
   const partnerId = searchParams.partner?.trim() || null;
   const search = searchParams.q?.trim() || null;
+
+  let datePreset: AssemblyDatePreset =
+    searchParams.date === "yesterday" ||
+    searchParams.date === "today" ||
+    searchParams.date === "tomorrow" ||
+    searchParams.date === "range" ||
+    searchParams.date === "all"
+      ? searchParams.date
+      : "today";
+
+  if (search) {
+    datePreset = "all";
+  }
 
   return {
     datePreset,
@@ -76,6 +81,10 @@ export function parseAssemblyFilters(searchParams: {
 }
 
 export function assemblyDateRange(filters: AssemblyFilters): { gte: Date; lte: Date } | null {
+  if (filters.datePreset === "all" || filters.search) {
+    return null;
+  }
+
   const today = getZonedDateParts(ASSEMBLY_TIMEZONE);
 
   if (filters.datePreset === "yesterday") {
@@ -151,6 +160,10 @@ export function buildAssemblyWhere(filters: AssemblyFilters) {
 }
 
 export function formatFilterDateLabel(filters: AssemblyFilters): string {
+  if (filters.datePreset === "all" || filters.search) {
+    return "All time";
+  }
+
   if (filters.datePreset === "range") {
     if (filters.rangeFrom && filters.rangeTo && filters.rangeFrom !== filters.rangeTo) {
       return `${filters.rangeFrom} – ${filters.rangeTo}`;

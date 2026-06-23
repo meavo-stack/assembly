@@ -9,6 +9,7 @@ const DATE_PRESETS: { id: AssemblyDatePreset; label: string }[] = [
   { id: "yesterday", label: "Yesterday" },
   { id: "today", label: "Today" },
   { id: "tomorrow", label: "Tomorrow" },
+  { id: "all", label: "All time" },
 ];
 
 export function AssemblyFilters({
@@ -48,7 +49,8 @@ export function AssemblyFilters({
 
   function selectPreset(preset: AssemblyDatePreset) {
     setRangeOpen(false);
-    pushParams({ date: preset, from: null, to: null });
+    setSearch("");
+    pushParams({ date: preset, from: null, to: null, q: null });
   }
 
   function openRangePicker() {
@@ -61,10 +63,12 @@ export function AssemblyFilters({
 
   function applyRange() {
     if (!rangeFrom && !rangeTo) return;
+    setSearch("");
     pushParams({
       date: "range",
       from: rangeFrom || null,
       to: rangeTo || rangeFrom || null,
+      q: null,
     });
   }
 
@@ -77,12 +81,18 @@ export function AssemblyFilters({
   }
 
   function applySearch() {
-    pushParams({ q: search.trim() || null });
+    const trimmed = search.trim();
+    if (!trimmed) {
+      pushParams({ q: null });
+      return;
+    }
+    setRangeOpen(false);
+    pushParams({ q: trimmed, date: "all", from: null, to: null });
   }
 
   function clearSearch() {
     setSearch("");
-    pushParams({ q: null });
+    pushParams({ q: null, date: "today", from: null, to: null });
   }
 
   return (
