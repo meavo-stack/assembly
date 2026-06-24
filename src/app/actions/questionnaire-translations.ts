@@ -1,10 +1,10 @@
 "use server";
 
 import { QuestionnaireLocale, TranslationStatus } from "@prisma/client";
-import { revalidatePath } from "next/cache";
 import { requireMeavoAccess } from "@/lib/meavo-auth";
 import { prisma } from "@/lib/prisma";
 import { TARGET_QUESTIONNAIRE_LOCALES } from "@/lib/questionnaire-locales";
+import { revalidateQuestionnaireAdmin } from "@/lib/questionnaire-revalidate";
 import { translateQuestionnaireToLocale } from "@/lib/questionnaire-translate-ai";
 
 type ActionResult = { ok: true } | { ok: false; error: string };
@@ -110,8 +110,7 @@ export async function generateQuestionnaireTranslations(): Promise<ActionResult>
     };
   }
 
-  revalidatePath("/questionnaire");
-  revalidatePath("/questionnaire/preview");
+  revalidateQuestionnaireAdmin();
   return { ok: true };
 }
 
@@ -154,8 +153,7 @@ export async function saveLocaleTranslations(formData: FormData): Promise<void> 
     await prisma.$transaction(ops);
   }
 
-  revalidatePath("/questionnaire");
-  revalidatePath("/questionnaire/preview");
+  revalidateQuestionnaireAdmin();
 }
 
 export async function approveLocaleTranslations(formData: FormData): Promise<void> {
@@ -181,6 +179,5 @@ export async function approveLocaleTranslations(formData: FormData): Promise<voi
     }),
   ]);
 
-  revalidatePath("/questionnaire");
-  revalidatePath("/questionnaire/preview");
+  revalidateQuestionnaireAdmin();
 }

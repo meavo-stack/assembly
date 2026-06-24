@@ -1,10 +1,7 @@
-import Link from "next/link";
 import { QuestionType } from "@prisma/client";
-import { requireMeavoAccess } from "@/lib/meavo-auth";
 import { migrateOrphanQuestions } from "@/lib/questionnaire-db";
 import { prisma } from "@/lib/prisma";
 import { questionTypeLabel } from "@/lib/questionnaire";
-import { buildLocaleTranslationBundles } from "@/lib/questionnaire-translation-status";
 import {
   addQuestion,
   addSection,
@@ -12,27 +9,20 @@ import {
   deleteSection,
   moveQuestion,
   moveSection,
-  toggleQuestionnairePublished,
   updateQuestionText,
   updateSectionTitle,
 } from "@/app/actions/meavo";
-import { QuestionnaireTranslationsPanel } from "@/components/questionnaire-translations-panel";
-import { Button, Card, Input, PageHeader } from "@/components/ui";
+import { Button, Card, Input } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
 
-export default async function QuestionnairePage() {
-  await requireMeavoAccess();
-
+export default async function QuestionnaireBuilderPage() {
   const questionnaire = await prisma.questionnaire.findFirst({
     orderBy: { createdAt: "asc" },
     include: {
       sections: {
         orderBy: { sortOrder: "asc" },
-        include: {
-          questions: { orderBy: { sortOrder: "asc" } },
-          translations: true,
-        },
+        include: { questions: { orderBy: { sortOrder: "asc" } } },
       },
     },
   });
@@ -47,13 +37,7 @@ export default async function QuestionnairePage() {
         include: {
           sections: {
             orderBy: { sortOrder: "asc" },
-            include: {
-              questions: {
-                orderBy: { sortOrder: "asc" },
-                include: { translations: true },
-              },
-              translations: true,
-            },
+            include: { questions: { orderBy: { sortOrder: "asc" } } },
           },
         },
       })
@@ -61,56 +45,13 @@ export default async function QuestionnairePage() {
 
   const sections = refreshed?.sections ?? [];
 
-  const sectionTranslations = sections.flatMap((section) => section.translations);
-  const questionTranslations = sections.flatMap((section) =>
-    section.questions.flatMap((question) => question.translations),
-  );
-
-  const translationBundles = buildLocaleTranslationBundles(
-    sections.map((section) => ({
-      id: section.id,
-      title: section.title,
-      questions: section.questions.map((question) => ({
-        id: question.id,
-        text: question.text,
-      })),
-    })),
-    sectionTranslations,
-    questionTranslations,
-  );
-
   return (
-    <>
-      <PageHeader
-        title="Install questionnaire"
-        description="Build sections with multiple checkboxes, or yes/no branches that can end early or show follow-up questions."
-      >
-        {refreshed && (
-          <div className="flex flex-wrap items-center gap-2">
-            <Link
-              href="/questionnaire/preview"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-            >
-              Preview
-            </Link>
-            <form action={toggleQuestionnairePublished}>
-              <input type="hidden" name="publish" value={String(!refreshed.isPublished)} />
-              <Button type="submit" variant="secondary">
-                {refreshed.isPublished ? "Unpublish" : "Publish"}
-              </Button>
-            </form>
-          </div>
-        )}
-      </PageHeader>
-
-      {refreshed && (
-        <QuestionnaireTranslationsPanel bundles={translationBundles} hasContent={sections.length > 0} />
-      )}
-
-      <Card className="mb-6">
-        <h2 className="font-medium text-slate-900">Add section</h2>
+    <div className="space-y-8">
+      <Card>
+        <h2 className="text-lg font-semibold text-slate-900">Add section</h2>
+        <p className="mt-1 text-sm text-slate-500">
+          Group related checkbox, text, or yes/no questions into a section.
+        </p>
         <form action={addSection} className="mt-4 flex flex-col gap-3 sm:flex-row">
           <div className="flex-1">
             <Input label="Section title" name="title" required placeholder="Electrics / Cabling" />
@@ -298,6 +239,6 @@ export default async function QuestionnairePage() {
           </Card>
         )}
       </div>
-    </>
+    </div>
   );
 }

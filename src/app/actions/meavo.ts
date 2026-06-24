@@ -8,6 +8,7 @@ import { hashSecret } from "@/lib/password";
 import { importAssembliesFromSheet } from "@/lib/sheets-import";
 import { slugifyPartnerName } from "@/lib/slug";
 import { migrateOrphanQuestions } from "@/lib/questionnaire-db";
+import { revalidateQuestionnaireAdmin } from "@/lib/questionnaire-revalidate";
 import {
   markQuestionTranslationsStale,
   markSectionTranslationsStale,
@@ -98,7 +99,7 @@ export async function addSection(formData: FormData): Promise<void> {
       sortOrder: (maxOrder._max.sortOrder ?? -1) + 1,
     },
   });
-  revalidatePath("/questionnaire");
+  revalidateQuestionnaireAdmin();
 }
 
 export async function updateSectionTitle(formData: FormData): Promise<void> {
@@ -115,7 +116,7 @@ export async function updateSectionTitle(formData: FormData): Promise<void> {
     data: { title },
   });
   await markSectionTranslationsStale(id);
-  revalidatePath("/questionnaire");
+  revalidateQuestionnaireAdmin();
 }
 
 export async function updateQuestionText(formData: FormData): Promise<void> {
@@ -132,7 +133,7 @@ export async function updateQuestionText(formData: FormData): Promise<void> {
     data: { text },
   });
   await markQuestionTranslationsStale(id);
-  revalidatePath("/questionnaire");
+  revalidateQuestionnaireAdmin();
 }
 
 export async function deleteSection(formData: FormData): Promise<void> {
@@ -140,7 +141,7 @@ export async function deleteSection(formData: FormData): Promise<void> {
   const id = String(formData.get("id") ?? "");
   if (!id) return;
   await prisma.questionnaireSection.delete({ where: { id } });
-  revalidatePath("/questionnaire");
+  revalidateQuestionnaireAdmin();
 }
 
 export async function moveSection(formData: FormData): Promise<void> {
@@ -166,7 +167,7 @@ export async function moveSection(formData: FormData): Promise<void> {
     prisma.questionnaireSection.update({ where: { id }, data: { sortOrder: other.sortOrder } }),
     prisma.questionnaireSection.update({ where: { id: other.id }, data: { sortOrder: section.sortOrder } }),
   ]);
-  revalidatePath("/questionnaire");
+  revalidateQuestionnaireAdmin();
 }
 
 export async function addQuestion(formData: FormData): Promise<void> {
@@ -198,7 +199,7 @@ export async function addQuestion(formData: FormData): Promise<void> {
       sortOrder: (maxOrder._max.sortOrder ?? -1) + 1,
     },
   });
-  revalidatePath("/questionnaire");
+  revalidateQuestionnaireAdmin();
 }
 
 export async function moveQuestion(formData: FormData): Promise<void> {
@@ -224,7 +225,7 @@ export async function moveQuestion(formData: FormData): Promise<void> {
     prisma.question.update({ where: { id }, data: { sortOrder: other.sortOrder } }),
     prisma.question.update({ where: { id: other.id }, data: { sortOrder: question.sortOrder } }),
   ]);
-  revalidatePath("/questionnaire");
+  revalidateQuestionnaireAdmin();
 }
 
 export async function deleteQuestion(formData: FormData): Promise<void> {
@@ -232,7 +233,7 @@ export async function deleteQuestion(formData: FormData): Promise<void> {
   const id = String(formData.get("id") ?? "");
   if (!id) return;
   await prisma.question.delete({ where: { id } });
-  revalidatePath("/questionnaire");
+  revalidateQuestionnaireAdmin();
 }
 
 export async function toggleQuestionnairePublished(formData: FormData): Promise<void> {
@@ -243,7 +244,7 @@ export async function toggleQuestionnairePublished(formData: FormData): Promise<
     where: { id: questionnaire.id },
     data: { isPublished: publish },
   });
-  revalidatePath("/questionnaire");
+  revalidateQuestionnaireAdmin();
 }
 
 async function getOrCreateQuestionnaire() {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { QuestionnaireLocale } from "@prisma/client";
+import { QuestionnaireLocale, TranslationStatus } from "@prisma/client";
 import {
   approveLocaleTranslations,
   generateQuestionnaireTranslations,
@@ -25,6 +25,50 @@ const STATUS_LABELS: Record<LocaleTranslationBundle["status"], string> = {
   approved: "Approved",
 };
 
+function countStaleItems(bundle: LocaleTranslationBundle) {
+  const staleSections = bundle.sections.filter(
+    (section) => section.rowStatus === TranslationStatus.STALE,
+  ).length;
+  const staleQuestions = bundle.questions.filter(
+    (question) => question.rowStatus === TranslationStatus.STALE,
+  ).length;
+  return { staleSections, staleQuestions, total: staleSections + staleQuestions };
+}
+
+function staleSummary(bundle: LocaleTranslationBundle): string {
+  const { staleSections, staleQuestions } = countStaleItems(bundle);
+  const parts: string[] = [];
+  if (staleSections > 0) {
+    parts.push(`${staleSections} section${staleSections === 1 ? "" : "s"}`);
+  }
+  if (staleQuestions > 0) {
+    parts.push(`${staleQuestions} question${staleQuestions === 1 ? "" : "s"}`);
+  }
+  return parts.join(" and ");
+}
+
+function sortStaleFirst<T extends { rowStatus: TranslationStatus | null }>(items: T[]): T[] {
+  return [...items].sort((a, b) => {
+    const aStale = a.rowStatus === TranslationStatus.STALE ? 0 : 1;
+    const bStale = b.rowStatus === TranslationStatus.STALE ? 0 : 1;
+    return aStale - bStale;
+  });
+}
+
+function StaleBadge() {
+  return (
+    <span className="rounded-full bg-orange-100 px-2 py-0.5 text-xs font-medium text-orange-800">
+      Stale — English changed
+    </span>
+  );
+}
+
+function itemCardClass(isStale: boolean) {
+  return isStale
+    ? "rounded-lg border border-orange-200 bg-orange-50/40 p-4"
+    : "rounded-lg border border-slate-100 p-4";
+}
+
 export function QuestionnaireTranslationsPanel({
   bundles,
   hasContent,
@@ -39,6 +83,10 @@ export function QuestionnaireTranslationsPanel({
   const active = bundles.find((bundle) => bundle.locale === activeLocale) ?? bundles[0];
   if (!active) return null;
 
+  const staleItems = countStaleItems(active);
+  const sortedSections = sortStaleFirst(active.sections);
+  const sortedQuestions = sortStaleFirst(active.questions);
+
   function handleGenerate() {
     setGenerateError(null);
     startGenerate(async () => {
@@ -50,11 +98,11 @@ export function QuestionnaireTranslationsPanel({
   }
 
   return (
-    <Card className="mb-6">
+    <Card>
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h2 className="font-medium text-slate-900">Translations</h2>
-          <p className="mt-1 text-sm text-slate-600">
+          <h2 className="text-lg font-semibold text-slate-900">Translations</h2>
+          <p className="mt-1 text-sm text-slate-500">
             Generate AI drafts in German, French, Spanish, and Italian. Review, edit, and approve
             before partners can switch language.
           </p>
@@ -84,7 +132,9 @@ export function QuestionnaireTranslationsPanel({
                 activeLocale === bundle.locale ? "bg-white/20 text-white" : STATUS_STYLES[bundle.status]
               }`}
             >
-              {STATUS_LABELS[bundle.status]}
+              {bundle.status === "stale"
+                ? `Stale (${countStaleItems(bundle).total})`
+                : STATUS_LABELS[bundle.status]}
             </span>
           </button>
         ))}
@@ -99,8 +149,8 @@ export function QuestionnaireTranslationsPanel({
         <>
           {active.status === "stale" && (
             <p className="mt-4 rounded-lg border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-900">
-              English source changed since these translations were last approved. Regenerate or edit,
-              then approve again before partners see this language.
+              English changed for {staleSummary(active)}. Review the highlighted items below, then
+              save and approve again before partners see this language.
             </p>
           )}
 
@@ -108,10 +158,22 @@ export function QuestionnaireTranslationsPanel({
             <input type="hidden" name="locale" value={active.locale} />
 
             <div className="space-y-4">
-              <h3 className="text-sm font-medium text-slate-900">Section titles</h3>
-              {active.sections.map((section) => (
-                <div key={section.id} className="rounded-lg border border-slate-100 p-4">
-                  <p className="text-xs text-slate-500">English</p>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 className="text-base font-semibold text-slate-900">Section titles</h3>
+                {staleItems.staleSections > 0 && (
+                  <p className="text-xs text-orange-800">
+                    {staleItems.staleSections} stale section{staleItems.staleSections === 1 ? "" : "s"}
+                  </p>
+                )}
+              </div>
+              {sortedSections.map((section) => {
+                const isStale = section.rowStatus === TranslationStatus.STALE;
+                return (
+                <div key={section.id} className={itemCardClass(isStale)}>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-xs text-slate-500">English</p>
+                    {isStale && <StaleBadge />}
+                  </div>
                   <p className="text-sm font-medium text-slate-900">{section.enTitle}</p>
                   <label className="mt-3 block text-sm">
                     <span className="font-medium text-slate-700">{LOCALE_NAMES[active.locale]}</span>
@@ -123,14 +185,27 @@ export function QuestionnaireTranslationsPanel({
                     />
                   </label>
                 </div>
-              ))}
+              );
+              })}
             </div>
 
             <div className="space-y-4">
-              <h3 className="text-sm font-medium text-slate-900">Questions</h3>
-              {active.questions.map((question) => (
-                <div key={question.id} className="rounded-lg border border-slate-100 p-4">
-                  <p className="text-xs text-slate-500">English</p>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 className="text-base font-semibold text-slate-900">Questions</h3>
+                {staleItems.staleQuestions > 0 && (
+                  <p className="text-xs text-orange-800">
+                    {staleItems.staleQuestions} stale question{staleItems.staleQuestions === 1 ? "" : "s"}
+                  </p>
+                )}
+              </div>
+              {sortedQuestions.map((question) => {
+                const isStale = question.rowStatus === TranslationStatus.STALE;
+                return (
+                <div key={question.id} className={itemCardClass(isStale)}>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-xs text-slate-500">English</p>
+                    {isStale && <StaleBadge />}
+                  </div>
                   <p className="text-sm font-medium text-slate-900">{question.enText}</p>
                   <label className="mt-3 block text-sm">
                     <span className="font-medium text-slate-700">{LOCALE_NAMES[active.locale]}</span>
@@ -143,7 +218,8 @@ export function QuestionnaireTranslationsPanel({
                     />
                   </label>
                 </div>
-              ))}
+              );
+              })}
             </div>
 
             <Button type="submit">Save {LOCALE_NAMES[active.locale]} edits</Button>
