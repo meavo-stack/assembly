@@ -5,6 +5,8 @@ export const TARGET_QUESTIONNAIRE_LOCALES: QuestionnaireLocale[] = [
   QuestionnaireLocale.FR,
   QuestionnaireLocale.ES,
   QuestionnaireLocale.IT,
+  QuestionnaireLocale.CS,
+  QuestionnaireLocale.NL,
 ];
 
 export const QUESTIONNAIRE_LOCALE_COOKIE = "assembly_questionnaire_lang";
@@ -15,6 +17,8 @@ export const LOCALE_SHORT_LABELS: Record<QuestionnaireLocale, string> = {
   [QuestionnaireLocale.FR]: "FR",
   [QuestionnaireLocale.ES]: "ES",
   [QuestionnaireLocale.IT]: "IT",
+  [QuestionnaireLocale.CS]: "CS",
+  [QuestionnaireLocale.NL]: "NL",
 };
 
 export const LOCALE_NAMES: Record<QuestionnaireLocale, string> = {
@@ -23,6 +27,8 @@ export const LOCALE_NAMES: Record<QuestionnaireLocale, string> = {
   [QuestionnaireLocale.FR]: "Français",
   [QuestionnaireLocale.ES]: "Español",
   [QuestionnaireLocale.IT]: "Italiano",
+  [QuestionnaireLocale.CS]: "Čeština",
+  [QuestionnaireLocale.NL]: "Nederlands",
 };
 
 const LOCALE_PARAM_MAP: Record<string, QuestionnaireLocale> = {
@@ -31,6 +37,8 @@ const LOCALE_PARAM_MAP: Record<string, QuestionnaireLocale> = {
   fr: QuestionnaireLocale.FR,
   es: QuestionnaireLocale.ES,
   it: QuestionnaireLocale.IT,
+  cs: QuestionnaireLocale.CS,
+  nl: QuestionnaireLocale.NL,
 };
 
 export function parseQuestionnaireLocaleParam(value: string | undefined): QuestionnaireLocale | null {

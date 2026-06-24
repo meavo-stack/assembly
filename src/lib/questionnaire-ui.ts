@@ -187,12 +187,78 @@ const IT: QuestionnaireUiCopy = {
   languageLabel: "Lingua",
 };
 
+const CS: QuestionnaireUiCopy = {
+  ...EN,
+  step: (current, total) => `Krok ${current} z ${total}`,
+  back: "Zpět",
+  next: "Další",
+  finish: "Dokončit",
+  finishPreview: "Dokončit náhled",
+  yes: "Ano",
+  no: "Ne",
+  followUpPlaceholder: "Popište problémy…",
+  photosTitle: "Fotografie instalace",
+  photosDescription:
+    "Přiložte fotografie dokončené montáže (exteriér, interiér a případné problémy).",
+  photosAddMore: "Před odesláním můžete přidat další fotografie.",
+  submitting: "Odesílání…",
+  submit: "Odeslat",
+  completePreview: "Dokončit náhled",
+  photosDisabledPreview: "Nahrávání fotografií je v režimu náhledu vypnuto.",
+  previewCompleteTitle: "Náhled dokončen",
+  previewCompleteBody:
+    "Dosáhli jste konce dotazníku. Nic nebylo uloženo — jedná se pouze o test.",
+  startOver: "Začít znovu",
+  submittedTitle: "Dotazník odeslán",
+  submittedBody: "Děkujeme. MEAVO obdrželo váš instalační checklist.",
+  noSectionsPartner: "Zatím nebyl publikován žádný dotazník.",
+  noSectionsPreview:
+    "V dotazníku zatím nejsou žádné sekce. Přidejte sekce na stránce tvůrce a znovu spusťte náhled.",
+  noSteps: "Pro tento dotazník nejsou k dispozici žádné kroky.",
+  previewBanner: "Režim náhledu — odpovědi a fotografie se neukládají.",
+  languageLabel: "Jazyk",
+};
+
+const NL: QuestionnaireUiCopy = {
+  ...EN,
+  step: (current, total) => `Stap ${current} van ${total}`,
+  back: "Terug",
+  next: "Volgende",
+  finish: "Afronden",
+  finishPreview: "Voorbeeld afronden",
+  yes: "Ja",
+  no: "Nee",
+  followUpPlaceholder: "Beschrijf de problemen…",
+  photosTitle: "Installatiefoto’s",
+  photosDescription:
+    "Voeg foto’s toe van de voltooide montage (exterieur, interieur en eventuele problemen).",
+  photosAddMore: "U kunt meer foto’s toevoegen voordat u verzendt.",
+  submitting: "Verzenden…",
+  submit: "Verzenden",
+  completePreview: "Voorbeeld voltooien",
+  photosDisabledPreview: "Foto-upload is uitgeschakeld in voorbeeldmodus.",
+  previewCompleteTitle: "Voorbeeld voltooid",
+  previewCompleteBody:
+    "U bent aan het einde van de vragenlijst gekomen. Er is niets opgeslagen — dit is alleen een test.",
+  startOver: "Opnieuw beginnen",
+  submittedTitle: "Vragenlijst verzonden",
+  submittedBody: "Bedankt. MEAVO heeft uw installatiechecklist ontvangen.",
+  noSectionsPartner: "Er is nog geen vragenlijst gepubliceerd.",
+  noSectionsPreview:
+    "Nog geen secties in de vragenlijst. Voeg secties toe op de bouwpagina en bekijk het voorbeeld opnieuw.",
+  noSteps: "Geen stappen beschikbaar voor deze vragenlijst.",
+  previewBanner: "Voorbeeldmodus — antwoorden en foto’s worden niet opgeslagen.",
+  languageLabel: "Taal",
+};
+
 const COPY: Record<QuestionnaireLocale, QuestionnaireUiCopy> = {
   [QuestionnaireLocale.EN]: EN,
   [QuestionnaireLocale.DE]: DE,
   [QuestionnaireLocale.FR]: FR,
   [QuestionnaireLocale.ES]: ES,
   [QuestionnaireLocale.IT]: IT,
+  [QuestionnaireLocale.CS]: CS,
+  [QuestionnaireLocale.NL]: NL,
 };
 
 export function getQuestionnaireUiCopy(locale: QuestionnaireLocale): QuestionnaireUiCopy {

@@ -103,7 +103,7 @@ export function QuestionnaireTranslationsPanel({
         <div>
           <h2 className="text-lg font-semibold text-slate-900">Translations</h2>
           <p className="mt-1 text-sm text-slate-500">
-            Generate AI drafts in German, French, Spanish, and Italian. Review, edit, and approve
+            Generate AI drafts for all target languages. Review, edit, and approve
             before partners can switch language.
           </p>
         </div>

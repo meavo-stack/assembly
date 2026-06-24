@@ -37,6 +37,8 @@ const LOCALE_LANGUAGE: Record<QuestionnaireLocale, string> = {
   [QuestionnaireLocale.FR]: "French",
   [QuestionnaireLocale.ES]: "Spanish",
   [QuestionnaireLocale.IT]: "Italian",
+  [QuestionnaireLocale.CS]: "Czech",
+  [QuestionnaireLocale.NL]: "Dutch",
 };
 
 function buildPrompt(locale: QuestionnaireLocale, source: TranslationSource): string {

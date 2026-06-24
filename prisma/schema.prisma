@@ -280,6 +280,8 @@ enum QuestionnaireLocale {
   FR
   ES
   IT
+  CS
+  NL
 }
 
 enum TranslationStatus {
