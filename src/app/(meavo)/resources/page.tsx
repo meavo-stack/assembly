@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { ResourceType } from "@prisma/client";
 import { requireMeavoAccess } from "@/lib/meavo-auth";
 import { prisma } from "@/lib/prisma";
@@ -22,7 +23,16 @@ export default async function ResourcesPage() {
       <PageHeader
         title="Resource library"
         description="Assembly guides and troubleshooting resources for partner portals. Resources are published immediately when added."
-      />
+      >
+        <Link
+          href="/resources/preview"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+        >
+          Preview
+        </Link>
+      </PageHeader>
 
       <Card className="mb-6">
         <h2 className="font-medium text-slate-900">Add resource</h2>

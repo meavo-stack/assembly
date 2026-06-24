@@ -32,6 +32,11 @@ export function boothModelLabel(model: BoothModel): string {
   return ALL_BOOTH_MODELS.find((entry) => entry.value === model)?.label ?? model;
 }
 
+export function parseBoothModelFilter(value: string | undefined): BoothModel | null {
+  if (!value) return null;
+  return ALL_BOOTH_MODELS.some((entry) => entry.value === value) ? (value as BoothModel) : null;
+}
+
 export function parseBoothModels(formData: FormData): BoothModel[] {
   const values = formData.getAll("models").map(String);
   const allowed = new Set(ALL_BOOTH_MODELS.map((entry) => entry.value));
