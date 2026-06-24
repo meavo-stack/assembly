@@ -82,3 +82,33 @@ export function questionTypeLabel(type: QuestionType): string {
   if (type === QuestionType.YES_NO) return "Yes / No";
   return "Checkbox";
 }
+
+type DbQuestionnaireSection = {
+  id: string;
+  title: string;
+  sortOrder: number;
+  questions: Array<{
+    id: string;
+    text: string;
+    type: QuestionType;
+    sortOrder: number;
+    parentQuestionId: string | null;
+    endsQuestionnaireOnNo: boolean;
+  }>;
+};
+
+export function mapQuestionnaireSections(sections: DbQuestionnaireSection[]): SectionRecord[] {
+  return sections.map((section) => ({
+    id: section.id,
+    title: section.title,
+    sortOrder: section.sortOrder,
+    questions: section.questions.map((q) => ({
+      id: q.id,
+      text: q.text,
+      type: q.type,
+      sortOrder: q.sortOrder,
+      parentQuestionId: q.parentQuestionId,
+      endsQuestionnaireOnNo: q.endsQuestionnaireOnNo,
+    })),
+  }));
+}

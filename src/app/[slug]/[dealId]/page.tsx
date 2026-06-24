@@ -5,7 +5,7 @@ import { requirePartnerSession } from "@/lib/partner-session";
 import { prisma } from "@/lib/prisma";
 import { MEVAO_RESERVED_SEGMENTS } from "@/lib/constants";
 import { QuestionnaireWizard } from "@/components/questionnaire-wizard";
-import type { SectionRecord } from "@/lib/questionnaire";
+import { mapQuestionnaireSections } from "@/lib/questionnaire";
 
 export const dynamic = "force-dynamic";
 
@@ -37,20 +37,7 @@ export default async function PartnerAssemblyPage({
     },
   });
 
-  const sections: SectionRecord[] =
-    questionnaire?.sections.map((section) => ({
-      id: section.id,
-      title: section.title,
-      sortOrder: section.sortOrder,
-      questions: section.questions.map((q) => ({
-        id: q.id,
-        text: q.text,
-        type: q.type,
-        sortOrder: q.sortOrder,
-        parentQuestionId: q.parentQuestionId,
-        endsQuestionnaireOnNo: q.endsQuestionnaireOnNo,
-      })),
-    })) ?? [];
+  const sections = mapQuestionnaireSections(questionnaire?.sections ?? []);
 
   const submission = await prisma.questionnaireSubmission.findUnique({
     where: { assemblyId_partnerId: { assemblyId: assembly.id, partnerId: partner.id } },

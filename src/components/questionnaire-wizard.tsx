@@ -14,21 +14,24 @@ export function QuestionnaireWizard({
   slug,
   dealId,
   sections,
-  initialAnswers,
-  hasPhotos,
-  isSubmitted,
+  initialAnswers = {},
+  hasPhotos = false,
+  isSubmitted = false,
+  preview = false,
 }: {
-  slug: string;
-  dealId: string;
+  slug?: string;
+  dealId?: string;
   sections: SectionRecord[];
-  initialAnswers: Record<string, AnswerRecord>;
-  hasPhotos: boolean;
-  isSubmitted: boolean;
+  initialAnswers?: Record<string, AnswerRecord>;
+  hasPhotos?: boolean;
+  isSubmitted?: boolean;
+  preview?: boolean;
 }) {
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState(initialAnswers);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [previewComplete, setPreviewComplete] = useState(false);
 
   const steps = useMemo(() => buildWizardSteps(sections, answers), [sections, answers]);
   const currentStep = steps[step];
@@ -38,7 +41,39 @@ export function QuestionnaireWizard({
     setStep((s) => Math.min(s, Math.max(steps.length - 1, 0)));
   }, [steps.length]);
 
-  if (isSubmitted) {
+  function completePreview() {
+    setPreviewComplete(true);
+  }
+
+  function restartPreview() {
+    setAnswers({});
+    setStep(0);
+    setPreviewComplete(false);
+    setError(null);
+  }
+
+  function persistAnswer(questionId: string, answer: Parameters<typeof saveQuestionAnswer>[3]) {
+    if (preview || !slug || !dealId) return;
+    startTransition(async () => {
+      await saveQuestionAnswer(slug, dealId, questionId, answer);
+    });
+  }
+
+  if (previewComplete) {
+    return (
+      <Card className="text-center">
+        <p className="text-lg font-medium text-slate-900">Preview complete</p>
+        <p className="mt-2 text-sm text-slate-600">
+          You reached the end of the questionnaire. Nothing was saved — this is a test run only.
+        </p>
+        <Button type="button" className="mt-4" onClick={restartPreview}>
+          Start over
+        </Button>
+      </Card>
+    );
+  }
+
+  if (isSubmitted && !preview) {
     return (
       <Card className="text-center">
         <p className="text-lg font-medium text-slate-900">Questionnaire submitted</p>
@@ -50,7 +85,11 @@ export function QuestionnaireWizard({
   if (!sections.length) {
     return (
       <Card>
-        <p className="text-sm text-slate-600">No questionnaire has been published yet.</p>
+        <p className="text-sm text-slate-600">
+          {preview
+            ? "No sections in the questionnaire yet. Add sections on the builder page, then preview again."
+            : "No questionnaire has been published yet."}
+        </p>
       </Card>
     );
   }
@@ -73,6 +112,12 @@ export function QuestionnaireWizard({
 
   return (
     <div className="mx-auto w-full max-w-lg">
+      {preview && (
+        <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <span className="font-medium">Preview mode</span> — answers and photos are not saved.
+        </div>
+      )}
+
       <p className="mb-4 text-center text-sm text-slate-500">
         Step {step + 1} of {totalSteps}
       </p>
@@ -100,9 +145,7 @@ export function QuestionnaireWizard({
                         yesNo: prev[question.id]?.yesNo ?? null,
                       },
                     }));
-                    startTransition(async () => {
-                      await saveQuestionAnswer(slug, dealId, question.id, { checked });
-                    });
+                    persistAnswer(question.id, { checked });
                   }}
                 />
                 <span className="text-base text-slate-700">{question.text}</span>
@@ -152,11 +195,7 @@ export function QuestionnaireWizard({
                         yesNo: option.value,
                       },
                     }));
-                    startTransition(async () => {
-                      await saveQuestionAnswer(slug, dealId, currentStep.question.id, {
-                        yesNoAnswer: option.value,
-                      });
-                    });
+                    persistAnswer(currentStep.question.id, { yesNoAnswer: option.value });
                   }}
                 >
                   {option.label}
@@ -174,12 +213,13 @@ export function QuestionnaireWizard({
               disabled={!isStepComplete(currentStep, answers) || pending}
               onClick={() => {
                 const answer = answers[currentStep.question.id];
-                if (
-                  answer?.yesNo === false &&
-                  currentStep.question.endsQuestionnaireOnNo
-                ) {
+                if (answer?.yesNo === false && currentStep.question.endsQuestionnaireOnNo) {
+                  if (preview) {
+                    completePreview();
+                    return;
+                  }
                   startTransition(async () => {
-                    await submitQuestionnaire(slug, dealId);
+                    if (slug && dealId) await submitQuestionnaire(slug, dealId);
                   });
                   return;
                 }
@@ -188,7 +228,9 @@ export function QuestionnaireWizard({
             >
               {answers[currentStep.question.id]?.yesNo === false &&
               currentStep.question.endsQuestionnaireOnNo
-                ? "Finish"
+                ? preview
+                  ? "Finish preview"
+                  : "Finish"
                 : "Next"}
             </Button>
           </div>
@@ -215,11 +257,7 @@ export function QuestionnaireWizard({
               }));
             }}
             onBlur={(e) => {
-              startTransition(async () => {
-                await saveQuestionAnswer(slug, dealId, currentStep.question.id, {
-                  textAnswer: e.target.value,
-                });
-              });
+              persistAnswer(currentStep.question.id, { textAnswer: e.target.value });
             }}
           />
           <div className="mt-6 flex gap-3">
@@ -232,8 +270,22 @@ export function QuestionnaireWizard({
               disabled={!isStepComplete(currentStep, answers) || pending}
               onClick={() => {
                 const text = answers[currentStep.question.id]?.text ?? "";
+                if (preview) {
+                  setAnswers((prev) => ({
+                    ...prev,
+                    [currentStep.question.id]: {
+                      checked: false,
+                      text,
+                      yesNo: null,
+                    },
+                  }));
+                  goNext();
+                  return;
+                }
                 startTransition(async () => {
-                  await saveQuestionAnswer(slug, dealId, currentStep.question.id, { textAnswer: text });
+                  if (slug && dealId) {
+                    await saveQuestionAnswer(slug, dealId, currentStep.question.id, { textAnswer: text });
+                  }
                   goNext();
                 });
               }}
@@ -251,41 +303,64 @@ export function QuestionnaireWizard({
             Attach photos of the completed assembly (booth exterior, interior, and any issues).
           </p>
 
-          <form
-            className="mt-4 space-y-4"
-            action={async (formData) => {
-              setError(null);
-              startTransition(async () => {
-                const upload = await uploadSubmissionPhotos(slug, dealId, formData);
-                if (upload.error) {
-                  setError(upload.error);
-                  return;
-                }
-                await submitQuestionnaire(slug, dealId);
-              });
-            }}
-          >
-            <input
-              name="photos"
-              type="file"
-              accept="image/*"
-              capture="environment"
-              multiple
-              className="block w-full text-sm"
-            />
-            {hasPhotos && (
-              <p className="text-xs text-slate-500">You can add more photos before submitting.</p>
-            )}
-            {error && <p className="text-sm text-red-600">{error}</p>}
-            <div className="flex gap-3">
-              <Button type="button" variant="secondary" className="flex-1" onClick={goBack}>
-                Back
-              </Button>
-              <Button type="submit" className="flex-1" disabled={pending}>
-                {pending ? "Submitting…" : "Submit"}
-              </Button>
+          {preview ? (
+            <div className="mt-4 space-y-4">
+              <input
+                type="file"
+                accept="image/*"
+                capture="environment"
+                multiple
+                className="block w-full text-sm"
+                disabled
+              />
+              <p className="text-xs text-slate-500">Photo upload is disabled in preview mode.</p>
+              <div className="flex gap-3">
+                <Button type="button" variant="secondary" className="flex-1" onClick={goBack}>
+                  Back
+                </Button>
+                <Button type="button" className="flex-1" onClick={completePreview}>
+                  Complete preview
+                </Button>
+              </div>
             </div>
-          </form>
+          ) : (
+            <form
+              className="mt-4 space-y-4"
+              action={async (formData) => {
+                setError(null);
+                startTransition(async () => {
+                  if (!slug || !dealId) return;
+                  const upload = await uploadSubmissionPhotos(slug, dealId, formData);
+                  if (upload.error) {
+                    setError(upload.error);
+                    return;
+                  }
+                  await submitQuestionnaire(slug, dealId);
+                });
+              }}
+            >
+              <input
+                name="photos"
+                type="file"
+                accept="image/*"
+                capture="environment"
+                multiple
+                className="block w-full text-sm"
+              />
+              {hasPhotos && (
+                <p className="text-xs text-slate-500">You can add more photos before submitting.</p>
+              )}
+              {error && <p className="text-sm text-red-600">{error}</p>}
+              <div className="flex gap-3">
+                <Button type="button" variant="secondary" className="flex-1" onClick={goBack}>
+                  Back
+                </Button>
+                <Button type="submit" className="flex-1" disabled={pending}>
+                  {pending ? "Submitting…" : "Submit"}
+                </Button>
+              </div>
+            </form>
+          )}
         </Card>
       )}
     </div>
