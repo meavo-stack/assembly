@@ -10,6 +10,7 @@ import {
 } from "@/lib/questionnaire";
 import { getQuestionnaireUiCopy } from "@/lib/questionnaire-ui";
 import { saveQuestionAnswer, submitQuestionnaire, uploadSubmissionPhotos } from "@/app/actions/partner";
+import { MAX_PHOTO_BYTES, MAX_PHOTO_ERROR } from "@/lib/upload-limits";
 import { QuestionnaireLanguagePicker } from "@/components/questionnaire-language-picker";
 import { Button, Card } from "@/components/ui";
 
@@ -38,6 +39,7 @@ export function QuestionnaireWizard({
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState(initialAnswers);
   const [pending, startTransition] = useTransition();
+  const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [previewComplete, setPreviewComplete] = useState(false);
 
@@ -340,15 +342,27 @@ export function QuestionnaireWizard({
               className="mt-4 space-y-4"
               action={async (formData) => {
                 setError(null);
-                startTransition(async () => {
-                  if (!slug || !dealId) return;
+                if (!slug || !dealId) return;
+
+                const files = formData
+                  .getAll("photos")
+                  .filter((f): f is File => f instanceof File && f.size > 0);
+                if (files.some((f) => f.size > MAX_PHOTO_BYTES)) {
+                  setError(MAX_PHOTO_ERROR);
+                  return;
+                }
+
+                setUploading(true);
+                try {
                   const upload = await uploadSubmissionPhotos(slug, dealId, formData);
                   if (upload.error) {
                     setError(upload.error);
                     return;
                   }
                   await submitQuestionnaire(slug, dealId);
-                });
+                } finally {
+                  setUploading(false);
+                }
               }}
             >
               <input
@@ -365,8 +379,8 @@ export function QuestionnaireWizard({
                 <Button type="button" variant="secondary" className="flex-1" onClick={goBack}>
                   {ui.back}
                 </Button>
-                <Button type="submit" className="flex-1" disabled={pending}>
-                  {pending ? ui.submitting : ui.submit}
+                <Button type="submit" className="flex-1" disabled={uploading}>
+                  {uploading ? ui.submitting : ui.submit}
                 </Button>
               </div>
             </form>
