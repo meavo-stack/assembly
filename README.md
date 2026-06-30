@@ -76,3 +76,11 @@ curl -H "Authorization: Bearer $CRON_SECRET" https://assembly.meavo.app/api/cron
 3. Domain: `assembly.meavo.app`
 4. Run `npm run db:push` once against shared DB (schema includes gateway + assembly tables)
 5. Grant users access via gateway Admin → Assembly tool card
+
+## Related apps
+
+| App | Domain | Repo |
+|-----|--------|------|
+| Gateway | [meavo.app](https://meavo.app) | [meavo-booths/meavo-gateway](https://github.com/meavo-booths/meavo-gateway) |
+| Vacation Tracker | [hols.meavo.app](https://hols.meavo.app) | [meavo-booths/hols](https://github.com/meavo-booths/hols) |
+| Assembly | [assembly.meavo.app](https://assembly.meavo.app) | [meavo-booths/assembly](https://github.com/meavo-booths/assembly) |
