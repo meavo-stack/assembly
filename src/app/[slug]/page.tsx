@@ -114,6 +114,13 @@ export default async function PartnerPortalPage({
               <Card className="transition hover:border-brand-500">
                 <p className="font-medium text-slate-900">{assembly.dealId}</p>
                 <p className="text-sm text-slate-600">{assembly.clientName || "Unknown client"}</p>
+                {assembly.channelType ? (
+                  <p className="text-xs text-slate-500">Client type: {assembly.channelType}</p>
+                ) : null}
+                <div className="mt-2 space-y-1 text-xs text-slate-500">
+                  <p>Install: {assembly.installPartnerName || "—"}</p>
+                  <p>Delivery: {assembly.deliveryPartnerName || "—"}</p>
+                </div>
                 <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
                   <span className="text-slate-500">
                     {assembly.assemblyDate?.toLocaleDateString("en-GB") ?? "Date TBC"}

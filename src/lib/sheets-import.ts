@@ -3,13 +3,13 @@ import { prisma } from "@/lib/prisma";
 import { isInternalPartnerName, slugifyPartnerName } from "@/lib/slug";
 
 const SHEET_COLUMNS = {
-  date: 0,
-  deal: 1,
-  market: 2,
-  client: 3,
-  type: 4,
-  deliveryDoneBy: 8,
-  installDoneBy: 9,
+  date: 0, // A
+  deal: 1, // B
+  market: 2, // C
+  client: 3, // D
+  type: 4, // E — client type
+  deliveryDoneBy: 8, // I — delivery company
+  installDoneBy: 9, // J
 } as const;
 
 function parseSheetDate(value: string): Date | null {

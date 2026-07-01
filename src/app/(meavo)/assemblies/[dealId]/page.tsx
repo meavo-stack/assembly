@@ -52,7 +52,7 @@ export default async function AssemblyDetailPage({
             <dd>{assembly.market || "—"}</dd>
           </div>
           <div>
-            <dt className="text-slate-500">Type</dt>
+            <dt className="text-slate-500">Client type</dt>
             <dd>{assembly.channelType || "—"}</dd>
           </div>
           <div>

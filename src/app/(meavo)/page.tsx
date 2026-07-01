@@ -127,14 +127,20 @@ export default async function AssembliesPage({
                   <div>
                     <p className="font-medium text-slate-900">{assembly.dealId}</p>
                     <p className="text-sm text-slate-600">{assembly.clientName || "Unknown client"}</p>
+                    {assembly.channelType ? (
+                      <p className="text-xs text-slate-500">Client type: {assembly.channelType}</p>
+                    ) : null}
                   </div>
                   <div className="text-right text-sm text-slate-500">
                     <p>{formatDate(assembly.assemblyDate)}</p>
                     <p>{assembly.market}</p>
                   </div>
                 </div>
+                <div className="mt-2 space-y-1 text-xs text-slate-500">
+                  <p>Install: {assembly.installPartnerName || "—"}</p>
+                  <p>Delivery: {assembly.deliveryPartnerName || "—"}</p>
+                </div>
                 <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
-                  <span className="text-slate-500">Install: {assembly.installPartnerName || "—"}</span>
                   <span
                     className={
                       submitted
