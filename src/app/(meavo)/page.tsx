@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { SubmissionStatus } from "@prisma/client";
+import { AssemblyListCard } from "@/components/assembly-list-card";
 import { refreshFromSheet } from "@/app/actions/meavo";
 import { AssemblyFilters } from "@/components/assembly-filters";
 import { requireMeavoAccess } from "@/lib/meavo-auth";
@@ -13,11 +14,6 @@ import { prisma } from "@/lib/prisma";
 import { Button, Card, PageHeader } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
-
-function formatDate(date: Date | null): string {
-  if (!date) return "—";
-  return date.toLocaleDateString("en-GB", { timeZone: "UTC" });
-}
 
 export default async function AssembliesPage({
   searchParams,
@@ -122,36 +118,16 @@ export default async function AssembliesPage({
           const submitted = assembly.submissions.some((s) => s.status === SubmissionStatus.SUBMITTED);
           return (
             <Link key={assembly.id} href={`/assemblies/${encodeURIComponent(assembly.dealId)}`}>
-              <Card className="transition hover:border-brand-500">
-                <div className="flex flex-wrap items-start justify-between gap-2">
-                  <div>
-                    <p className="font-medium text-slate-900">{assembly.dealId}</p>
-                    <p className="text-sm text-slate-600">{assembly.clientName || "Unknown client"}</p>
-                    {assembly.channelType ? (
-                      <p className="text-xs text-slate-500">Client type: {assembly.channelType}</p>
-                    ) : null}
-                  </div>
-                  <div className="text-right text-sm text-slate-500">
-                    <p>{formatDate(assembly.assemblyDate)}</p>
-                    <p>{assembly.market}</p>
-                  </div>
-                </div>
-                <div className="mt-2 space-y-1 text-xs text-slate-500">
-                  <p>Install: {assembly.installPartnerName || "—"}</p>
-                  <p>Delivery: {assembly.deliveryPartnerName || "—"}</p>
-                </div>
-                <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
-                  <span
-                    className={
-                      submitted
-                        ? "rounded-full bg-green-100 px-2 py-0.5 font-medium text-green-800"
-                        : "rounded-full bg-slate-100 px-2 py-0.5 font-medium text-slate-600"
-                    }
-                  >
-                    {submitted ? "Questionnaire completed" : "Not completed"}
-                  </span>
-                </div>
-              </Card>
+              <AssemblyListCard
+                dealId={assembly.dealId}
+                clientName={assembly.clientName}
+                channelType={assembly.channelType}
+                assemblyDate={assembly.assemblyDate}
+                market={assembly.market}
+                installPartnerName={assembly.installPartnerName}
+                deliveryPartnerName={assembly.deliveryPartnerName}
+                submitted={submitted}
+              />
             </Link>
           );
         })}

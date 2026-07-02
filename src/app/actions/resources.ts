@@ -48,6 +48,146 @@ async function uploadResourceFiles(
   return uploaded;
 }
 
+function parseRemoveFileIds(formData: FormData): string[] {
+  return formData
+    .getAll("removeFileIds")
+    .map((value) => String(value).trim())
+    .filter(Boolean);
+}
+
+export async function updateResource(formData: FormData): Promise<{ error?: string }> {
+  await requireMeavoAccess();
+
+  const id = String(formData.get("id") ?? "").trim();
+  const title = String(formData.get("title") ?? "").trim();
+  const description = String(formData.get("description") ?? "").trim();
+  const models = parseBoothModels(formData);
+
+  if (!id) return { error: "Resource not found." };
+  if (!title) return { error: "Title is required." };
+  if (models.length === 0) return { error: "Select at least one booth model." };
+
+  const resource = await prisma.resource.findUnique({
+    where: { id },
+    include: { files: true, models: true },
+  });
+  if (!resource) return { error: "Resource not found." };
+
+  const removeFileIds = parseRemoveFileIds(formData);
+  const removableFiles = resource.files.filter((file) => removeFileIds.includes(file.id));
+  if (removableFiles.length !== removeFileIds.length) {
+    return { error: "One or more files could not be removed." };
+  }
+
+  const newFiles = getUploadedFiles(formData);
+  const remainingCount = resource.files.length - removableFiles.length;
+  const totalAfterUpdate = remainingCount + newFiles.length;
+
+  if (resource.type === ResourceType.PDF || resource.type === ResourceType.IMAGE) {
+    if (totalAfterUpdate < 1) {
+      return { error: "Keep at least one file, or upload replacements." };
+    }
+    if (totalAfterUpdate > MAX_RESOURCE_FILES) {
+      return { error: `You can have up to ${MAX_RESOURCE_FILES} files per resource.` };
+    }
+  }
+
+  let uploaded: { storageKey: string; fileName: string; mimeType: string }[] = [];
+
+  if (resource.type === ResourceType.PDF) {
+    for (const file of newFiles) {
+      if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
+        return { error: "All files must be PDFs." };
+      }
+    }
+
+    try {
+      uploaded = await uploadResourceFiles(newFiles, MAX_RESOURCE_PDF_BYTES, MAX_RESOURCE_PDF_ERROR);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to upload PDF. Try again.";
+      return { error: message };
+    }
+  } else if (resource.type === ResourceType.IMAGE) {
+    for (const file of newFiles) {
+      if (!RESOURCE_IMAGE_MIME_TYPES.has(file.type)) {
+        return { error: "Images must be JPEG, PNG, WebP, or GIF." };
+      }
+    }
+
+    try {
+      uploaded = await uploadResourceFiles(newFiles, MAX_RESOURCE_IMAGE_BYTES, MAX_RESOURCE_IMAGE_ERROR);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to upload images. Try again.";
+      return { error: message };
+    }
+  }
+
+  let typeUpdate: {
+    youtubeUrl?: string | null;
+    youtubeVideoId?: string | null;
+    linkUrl?: string | null;
+  } = {};
+
+  if (resource.type === ResourceType.YOUTUBE) {
+    const youtubeUrl = String(formData.get("youtubeUrl") ?? "").trim();
+    const youtubeVideoId = parseYoutubeVideoId(youtubeUrl);
+    if (!youtubeVideoId) return { error: "Enter a valid YouTube link." };
+    typeUpdate = { youtubeUrl, youtubeVideoId };
+  } else if (resource.type === ResourceType.LINK) {
+    const linkUrl = parseHttpUrl(String(formData.get("linkUrl") ?? ""));
+    if (!linkUrl) return { error: "Enter a valid http or https link." };
+    typeUpdate = { linkUrl };
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.resource.update({
+      where: { id },
+      data: {
+        title,
+        description,
+        ...typeUpdate,
+      },
+    });
+
+    await tx.resourceBoothModel.deleteMany({ where: { resourceId: id } });
+    await tx.resourceBoothModel.createMany({
+      data: models.map((boothModel) => ({ resourceId: id, boothModel })),
+    });
+
+    if (removeFileIds.length > 0) {
+      await tx.resourceFile.deleteMany({
+        where: { id: { in: removeFileIds }, resourceId: id },
+      });
+    }
+
+    if (uploaded.length > 0) {
+      await tx.resourceFile.createMany({
+        data: uploaded.map((file) => ({
+          resourceId: id,
+          storageKey: file.storageKey,
+          fileName: file.fileName,
+          mimeType:
+            resource.type === ResourceType.PDF
+              ? file.mimeType || "application/pdf"
+              : file.mimeType,
+        })),
+      });
+    }
+  });
+
+  for (const file of removableFiles) {
+    try {
+      await del(file.storageKey);
+    } catch {
+      // Blob may already be gone.
+    }
+  }
+
+  revalidatePath("/resources");
+  revalidatePath("/resources/preview");
+  return {};
+}
+
 export async function createResource(formData: FormData): Promise<{ error?: string }> {
   await requireMeavoAccess();
 
